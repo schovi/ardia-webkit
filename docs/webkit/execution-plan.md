@@ -333,7 +333,7 @@ Each of these is its own decision after the steps above.
 | 1. Nothing talks to upstream | done | `45bedc4d5`, `0b349a25c` | Release rebuilt; 22 rows pass, including 90-second request observation and 14 Settings panes. Reader defaults documented; setters stay stand-ins. |
 | 2. Window and keyboard | done, 4 rows unproven | `44dde8ea7`, `518a0917b`, `912129da5` | Traffic lights, close policy, profile switch, context menu, visibility: pass. Typing in a page, Esc focus, ⌘[ with page focus and element full screen are implemented but **unproven**: an app started from the agent session cannot become active on this Mac, so those rows report `SKIPPED (no key window)`. Trackpad swipe is `NEEDS PERSON`. A person must run [needs-person.md](needs-person.md). [Evidence](step-2-results.md). |
 | 3. Page features | Must implemented; Should deferred | `f2fef5c3d` | 32 PASS, 4 no-key-window skips, 2 NEEDS PERSON. Inspector UI and visual checks remain manual. [Evidence and remaining stubs](step-3-results.md). |
-| 4. Site and browser settings | not started | | |
+| 4. Site and browser settings | partial: native checks pass | `cba6075df` | 40 PASS; sound UI needs a state-handler scope exception; location storage only. [Evidence](step-4-results.md). |
 | 5. Bookmarks | not started | | |
 | 6. Import | not started | | |
 | 7. Passwords | not started | | |

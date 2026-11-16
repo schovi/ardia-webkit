@@ -147,3 +147,44 @@ a1b767cf61a0829e09b21f52591af42aac9f5a0980c0f03371d6f9f774bf8243  /Users/schovi/
 ## Other observed issue
 
 `WebKitDownloads.report` still sends `offTheRecord: false`, including for private profiles. This pre-existing event flag was not changed. Private-download persistence was not checked.
+
+## Files and commit
+
+Implementation: `cba6075df Implement native WebKit site and browser settings`.
+
+```text
+apps/browser/src/components/settings/panes/Advanced.tsx
+docs/webkit/execution-plan.md
+docs/webkit/needs-person.md
+docs/webkit/standins.md
+docs/webkit/step-4-results.md
+docs/webkit/upstream-endpoints.md
+packages/ardiacore/ios/ArdiaServices.h
+packages/ardiacore/ios/PageEngine.swift
+packages/ardiacore/ios/WebKitContentBlocker.swift
+packages/ardiacore/ios/WebKitDownloads.swift
+packages/ardiacore/ios/WebKitHub.swift
+packages/ardiacore/ios/WebKitModule.swift
+packages/ardiacore/ios/WebKitPermissions.swift
+packages/ardiacore/ios/WebKitStores.swift
+packages/ardiacore/ios/WebKitTab+PageTab.swift
+packages/ardiacore/ios/WebKitTab.swift
+packages/ardiacore/ios/webkit/EngineBridge.mm
+packages/ardiacore/ios/webkit/Host.mm
+packages/ardiacore/ios/webkit/Services.mm
+packages/ardiacore/ios/webkit/Standins.mm
+packages/ardiacore/ios/webkit/Store.mm
+packages/ardiacore/src/webkit.ts
+packages/ardiacore/tests/webkit-data.test.mm
+packages/ardiacore/tests/webkit-page-store.mm
+packages/ardiacore/tests/webkit-page.test.swift
+packages/ardiacore/tests/webkit-window.test.mm
+packages/shell/ios/AppUpdater.swift
+scripts/webkit/README.md
+scripts/webkit/check.test.mjs
+scripts/webkit/fixture.mjs
+scripts/webkit/rows.mjs
+scripts/webkit/settings-rows.mjs
+```
+
+The Progress row records the partial state. Nothing was pushed.
