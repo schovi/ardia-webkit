@@ -40,7 +40,10 @@ Not done. Each line is covered by a step below:
 - **To implement a stand-in:** write the method in a hand-written file in `webkit/`, make the generator skip it (it already skips methods that have a real implementation; check how before adding to it), regenerate `Standins.mm`, commit both.
 - `ArdiaEngineBridge call:profile:args:completion:` receives the old `ac_*` call names with JSON arguments. `EngineBridge.mm` answers the ones we support. Unknown names answer nil.
 - Page-level code is Swift: `packages/ardiacore/ios/WebKit*.swift`. `WebKitTab+PageTab.swift` lists the page stubs.
-- JS (`apps/browser/src`, `packages/*/src`) stays as upstream wrote it. A JS edit must be a line or two at a platform wrapper (`apps/browser/src/platform/`) or in `state/engines/`. If a step seems to need more, stop and report.
+- JS (`apps/browser/src`, `packages/*/src`) stays close to what upstream wrote, because every changed line is a conflict on a later rebase. Two cases:
+  - **Engine work** (making a call answer): fix it in native code. A JS edit is a line or two at a platform wrapper (`apps/browser/src/platform/`) or in `state/engines/`.
+  - **UI work that a step's "Do" list names** (hiding a setting, a menu item, an onboarding step, switching off an endpoint): JS edits are allowed where the UI lives. Prefer an existing `shown` predicate, constant or early return over deleting components, and touch the fewest files that do it. Update the tests that assert the removed behaviour.
+  - Anything else in JS: stop and report.
 - Store: one SQLite file per profile, `<data dir>/WebKit/Stores/<profile>.sqlite3`, opened by `Store.mm`. Private (incognito) profiles write nothing. New tables go in the same file. All SQL uses bound parameters.
 
 ## Rules for every step
