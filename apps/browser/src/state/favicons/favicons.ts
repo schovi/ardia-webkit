@@ -153,6 +153,7 @@ export function noteFavicon(tabId: string, src: string) {
 function remember(key: string, page: string, src: string, uri: string) {
   const icons = changes.length ? undefined : useFavicons.getState().profiles[key];
   if (icons && icons.pages[page] === uri && icons.srcs[src] === uri) return;
+  if (!isIncognitoProfile(key) && uri.startsWith(PNG_DATA_URI)) void storeFavicon(key, page, src, uri.slice(PNG_DATA_URI.length)).catch(() => null);
   const dark = useBrowser.getState().ui.appDark;
   const swapped = Date.now() - appearanceChangedAt < APPEARANCE_SWAP_MS;
   wrote(key, page);

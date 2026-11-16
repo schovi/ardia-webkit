@@ -4,6 +4,7 @@
 #import <objc/runtime.h>
 #import <QuartzCore/QuartzCore.h>
 #import "../ArdiaFieldTiming.h"
+#import "Store.h"
 
 void ArdiaWebViewsSetFieldTiming(BOOL on) {}
 
@@ -19,6 +20,12 @@ void ArdiaWebViewsSetFieldTiming(BOOL on) {}
       @"pageInsets": @[@0,@0,@0,@0], @"hosting": @YES, @"group": @"", @"hasRoot": @YES, @"translucent": @NO}];
   }
   return windows;
+}
++ (BOOL)isPrivateProfile:(NSString *)profile { return WebKitPrivateProfile(profile); }
++ (NSString *)baseProfileOf:(NSString *)profile {
+  if (!WebKitPrivateProfile(profile)) return profile ?: @"";
+  NSRange at = [profile rangeOfString:@"@"];
+  return at.location == NSNotFound ? @"" : [profile substringFromIndex:at.location + 1];
 }
 + (NSString *)dataDirectory {
   return [(ArdiaLaunchConfig.shared.dataDirectory ?: ArdiaLaunchConfig.shared.configDirectory) stringByAppendingPathComponent:@"WebKit"];

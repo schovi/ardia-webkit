@@ -37,7 +37,7 @@ for header in headers:
     text = (root / (header + '.h')).read_text()
     for interface in re.finditer(r'@interface\s+(\w+)(?:\s*\((\w+)\)|\s*:[^\n]+)?(.*?)@end', text, re.S):
         name, category, contents = interface.groups()
-        if (name == 'ArdiaHost' and category == 'Launch') or (name == 'ArdiaChromeWindowHost' and category == 'Dev'):
+        if name == 'ArdiaFavicons' or (name == 'ArdiaHost' and category == 'Launch') or (name == 'ArdiaChromeWindowHost' and category == 'Dev'):
             continue
         output.append('\n@implementation ' + name + (f' ({category})' if category else ''))
         for declaration in re.finditer(r'^[+-]\s*\(.*?;|@property\s*\(.*?;', contents, re.M | re.S):
@@ -56,7 +56,7 @@ for header in headers:
                     output.append(method(f'{kind} ({value_type}){getter[1] if getter else property_name};'))
                 if 'readonly' not in attributes:
                     output.append(method(f'{kind} (void)set{property_name[0].upper() + property_name[1:]}:({value_type})value;'))
-            elif name != 'ArdiaEngineBridge' or not declaration.startswith('+ (void)call:'):
+            elif not any(name == owner and declaration.startswith(prefix) for owner, prefix in [('ArdiaEngineBridge', '+ (void)call:'), ('ArdiaHost', '+ (BOOL)isPrivateProfile:'), ('ArdiaHost', '+ (NSString *)baseProfileOf:'), ('ArdiaServices', '+ (void)clearBrowsingData:'), ('ArdiaServices', '+ (void)searchEngineList:')]):
                 output.append(method(declaration))
         output.append('@end')
 (root / 'webkit/Standins.mm').write_text('\n'.join(output) + '\n')
