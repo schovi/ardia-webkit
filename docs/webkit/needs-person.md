@@ -54,6 +54,7 @@ Automated checks use only the file keychain and the `reauth` test switch. They n
 | Action | Expected result |
 |---|---|
 | Install `scripts/webkit/fixtures/extension-content` from Settings in a scratch profile | One permissions prompt appears. Cancel installs nothing. Accept lists the managed copy. |
+| Click Add to Ardia on a real Chrome Web Store detail page in a scratch profile | The existing name, permission, and host prompt appears. Decline installs nothing. Accept changes the button to Added, including after reload. |
 | Pin the fixture and physically click its toolbar action | The icon and badge `8` appear. The popup opens below the button and accepts focus. |
 | Click outside the popup, press Esc, and switch tabs | The popup closes. A later click opens a fresh popup. |
 | Disable, enable, reload, and remove the fixture through Settings | The displayed state matches injection. Relaunch retains the enabled state and permissions. |
