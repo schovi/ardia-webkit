@@ -8,6 +8,7 @@ Status: **a Release app (`Ardia WebKit`, no Chromium) does basic browsing with f
 
 | File | What it holds |
 |---|---|
+| [execution-plan.md](execution-plan.md) | **The working plan:** the remaining steps in detail, with a progress table |
 | [engine-swap-plan.md](engine-swap-plan.md) | The current plan: how to remove Chromium and get a working WebKit version |
 | [learnings.md](learnings.md) | Facts collected so far: Arc sunset, Safari limits, existing tools, how Ardia is built |
 | [proposal.md](proposal.md) | The first proposal. Its decision and the later move to native UI still hold |
@@ -25,4 +26,4 @@ The app lands in `apps/browser/build-webkit/Build/Products/Release/Ardia WebKit.
 
 ## Next action
 
-Use the app for real browsing and collect what breaks. Then decide the password approach (plan, Step 2b and Step 6).
+See the progress table in [execution-plan.md](execution-plan.md#progress).
