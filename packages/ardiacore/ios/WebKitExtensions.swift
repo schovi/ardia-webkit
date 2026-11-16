@@ -78,10 +78,10 @@ final class WebKitExtensions: NSObject, WKWebExtensionControllerDelegate {
 
   static func error(_ text: String) -> NSError { NSError(domain: "ArdiaExtensions", code: 1, userInfo: [NSLocalizedDescriptionKey: text]) }
 
-  func prompt(id: String, name: String, version: String, permissions: [String], type: String = "install", answer: @escaping (Bool) -> Void) {
+  func prompt(id: String, name: String, version: String, permissions: [String], type: String = "install", tabId: String? = nil, answer: @escaping (Bool) -> Void) {
     let request = UUID().uuidString
     Self.prompts[request] = answer
-    let data: [String: Any] = ["requestId": request, "profile": profile, "id": id, "name": name, "version": version, "type": type, "icon": "", "permissions": permissions, "tabId": NSNull()]
+    let data: [String: Any] = ["requestId": request, "profile": profile, "id": id, "name": name, "version": version, "type": type, "icon": "", "permissions": permissions, "tabId": tabId ?? NSNull() as Any]
     if LaunchConfig.shared.background, let encoded = try? JSONSerialization.data(withJSONObject: data) {
       try? encoded.write(to: URL(fileURLWithPath: ArdiaHost.dataDirectory).appendingPathComponent("extension-install-prompt.json"))
       NSLog("[webkit] extension install prompt %@ (background mode, not shown)", name)
@@ -89,7 +89,7 @@ final class WebKitExtensions: NSObject, WKWebExtensionControllerDelegate {
     ArdiaEvents.emit("extensions.installPrompt", data: data)
   }
 
-  func install(_ path: String, chromeID: String? = nil) async throws -> String {
+  func install(_ path: String, chromeID: String? = nil, tabId: String? = nil, fromStore: Bool = false) async throws -> String {
     guard !WebKitStores.isPrivate(profile) else { throw Self.error("Extensions are not loaded in private windows") }
     let source = URL(fileURLWithPath: path, isDirectory: true)
     try WebKitExtensionArchive.validateFolder(source)
@@ -106,7 +106,7 @@ final class WebKitExtensions: NSObject, WKWebExtensionControllerDelegate {
       let hosts = extensionObject.allRequestedMatchPatterns.map(\.string).sorted()
       let permissions = extensionObject.requestedPermissions.map(\.rawValue).sorted()
       let accepted = await withCheckedContinuation { continuation in
-        prompt(id: id, name: extensionObject.displayName ?? id, version: extensionObject.version ?? "", permissions: permissions + hosts) { continuation.resume(returning: $0) }
+        prompt(id: id, name: extensionObject.displayName ?? id, version: extensionObject.version ?? "", permissions: permissions + hosts, tabId: tabId) { continuation.resume(returning: $0) }
       }
       guard accepted else { throw Self.error("Extension installation cancelled") }
       var record = package
@@ -126,7 +126,8 @@ final class WebKitExtensions: NSObject, WKWebExtensionControllerDelegate {
       record["mayModify"] = true
       record["errors"] = extensionObject.errors.map(\.localizedDescription)
       record["location"] = "UNPACKED"
-      record["fromWebStore"] = false
+      record["fromWebStore"] = fromStore
+      if fromStore { record["webStoreUrl"] = "https://chromewebstore.google.com/detail/" + id }
       record["sidePanel"] = NSNull()
       for key in ["optionsUrl", "webStoreUrl", "homepageUrl"] where record[key] == nil { record[key] = NSNull() }
       save(id, record)

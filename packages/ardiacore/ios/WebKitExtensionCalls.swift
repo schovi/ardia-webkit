@@ -26,13 +26,7 @@ enum WebKitExtensionCalls {
         do {
           if name == "install" { return reply.ok(["id": try await manager.install(args.text("path"))]) }
           if name == "installCrx" {
-            let scratch = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("ardia-crx-" + UUID().uuidString)
-            try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
-            defer { try? FileManager.default.removeItem(at: scratch) }
-            let path = try args.text("path")
-            let chromeID = try WebKitExtensionArchive.signedIdentifier(Data(contentsOf: URL(fileURLWithPath: path)))
-            try WebKitExtensionArchive.unpack(path, into: scratch)
-            return reply.ok(["id": try await manager.install(scratch.path, chromeID: chromeID)])
+            return reply.ok(["id": try await manager.installCRX(args.text("path"))])
           }
           let options = name == "configure" ? try args.dict("options") : name == "setEnabled" ? ["enabled": try args.bool("enabled")] : [:]
           try await manager.change(args.text("id"), operation: name, options: options)

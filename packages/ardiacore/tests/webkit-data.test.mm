@@ -89,6 +89,11 @@ int main(int argc, const char **argv) {
   @autoreleasepool {
     Check(argc == 2, "scratch directory argument");
     directory = @(argv[1]);
+    for (NSString *url in @[@"https://clients2.google.com/service/update2/crx", @"https://clients2.googleusercontent.com/package"]) Check(WebKitStoreRedirectAllowed([NSURL URLWithString:url]), "store HTTPS redirect allowed");
+    for (NSString *url in @[@"http://google.com/", @"https://google.com.evil.test/", @"https://evilgoogle.com/", @"https://googleusercontent.com:444/", @"https://user:pass@google.com/"]) Check(!WebKitStoreRedirectAllowed([NSURL URLWithString:url]), "unsafe store redirect rejected");
+    __block BOOL badStoreId = NO;
+    WebKitFetchStore(@"../bad", ^(NSData *data, NSHTTPURLResponse *response, NSError *error) { badStoreId = error != nil && data == nil; });
+    Check(badStoreId, "store id rejected before network");
     CheckStoreOpenWaitsForWriter(directory);
     CheckConcurrentProfileSettings();
     __block BOOL emptyExtensions = NO;

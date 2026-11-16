@@ -12,11 +12,11 @@ export async function install(browser, scratch, name = "extension-content", prof
   if (crx) {
     const zip = folder + ".zip";
     await run("/usr/bin/ditto", ["-c", "-k", folder, zip]);
-    const signed = Buffer.from([10, 16, ...Buffer.alloc(16, 42)]);
-    const header = Buffer.from([0x82, 0xf1, 4, signed.length, ...signed]);
-    const prefix = Buffer.alloc(12); prefix.write("Cr24"); prefix.writeUInt32LE(3, 4); prefix.writeUInt32LE(header.length, 8);
     path = folder + ".crx";
-    writeFileSync(path, Buffer.concat([prefix, header, readFileSync(zip)]));
+    const signer = join(scratch,"crx-signer");
+    await run("xcrun",["swiftc","packages/ardiacore/tests/webkit-extensions.test.swift","packages/ardiacore/ios/WebKitExtensionArchive.swift","packages/ardiacore/ios/WebKitCRXSignature.swift","packages/ardiacore/ios/WebKitStorePolicy.swift","-o",signer]);
+    const signed = await run(signer,["--sign",zip,path]);
+    writeFileSync(folder+".id",signed.text.trim());
   }
   rmSync(join(browser.data, "WebKit/extension-install-prompt.json"), { force: true });
   await browser.evaluate(`globalThis.extInstall=null;ac.engine.call(${JSON.stringify(crx ? "extensions.installCrx" : "extensions.install")},${JSON.stringify({profile,path})}).then(r=>globalThis.extInstall=r,e=>globalThis.extInstall={failure:e.message});return true;`);
@@ -66,8 +66,8 @@ export const extensionRows = {
     return "consent via resolveInstallPrompt; managed copy survives source removal; Settings snapshot; worker runs; other profile empty";
   },
   "ext-install-crx": async ({browser,scratch}) => {
-    const {id}=await install(browser,scratch,"extension-content","",true);
-    assert.equal(id,"ck".repeat(16));
+    const {id,folder}=await install(browser,scratch,"extension-content","",true);
+    assert.equal(id,readFileSync(folder+".id","utf8"));
     return "CRX3 header and ZIP extracted; Chrome signed-header id preserved; requested hosts accepted through install prompt";
   },
   "ext-toggle": async ({browser,scratch}) => {

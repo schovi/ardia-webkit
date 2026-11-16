@@ -100,4 +100,6 @@ typedef NS_ENUM(NSInteger, ArdiaProfileToggle) {
 
 @end
 
+FOUNDATION_EXPORT void WebKitFetchStore(NSString *identifier, void (^done)(NSData * _Nullable, NSHTTPURLResponse * _Nullable, NSError * _Nullable));
+
 NS_ASSUME_NONNULL_END

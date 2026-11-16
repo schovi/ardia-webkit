@@ -35,39 +35,15 @@ struct WebKitExtensionArchive {
   static func signedIdentifier(_ data: Data) throws -> String {
     _ = try zipPayload(data)
     let length = (0..<4).reduce(0) { $0 | Int(data[8 + $1]) << ($1 * 8) }
-    func fields(_ bytes: Data) throws -> [Int: Data] {
-      var offset = 0
-      func variable() throws -> Int {
-        var value = 0
-        for shift in stride(from: 0, through: 56, by: 7) {
-          guard offset < bytes.count else { throw failure("Truncated CRX3 protobuf") }
-          let byte = bytes[offset]; offset += 1
-          value |= Int(byte & 127) << shift
-          if byte < 128 { return value }
-        }
-        throw failure("Invalid CRX3 protobuf")
-      }
-      var result: [Int: Data] = [:]
-      while offset < bytes.count {
-        let tag = try variable()
-        guard tag >> 3 > 0 else { throw failure("Invalid CRX3 field") }
-        if tag & 7 == 0 { _ = try variable(); continue }
-        guard tag & 7 == 2 else { throw failure("Unsupported CRX3 field") }
-        let size = try variable()
-        guard size <= bytes.count - offset else { throw failure("Truncated CRX3 field") }
-        result[tag >> 3] = bytes.subdata(in: offset..<(offset + size))
-        offset += size
-      }
-      return result
-    }
-    guard let signed = try fields(data.subdata(in: 12..<(12 + length)))[10000], let id = try fields(signed)[1], id.count == 16 else { throw failure("Missing CRX3 extension id") }
+    guard let signed = try WebKitCRXSignature.fields(data.subdata(in: 12..<(12 + length)))[10000]?.first, let id = try WebKitCRXSignature.fields(signed)[1]?.first, id.count == 16 else { throw failure("Missing CRX3 extension id") }
     return id.flatMap { [String(UnicodeScalar(97 + Int($0 >> 4))!), String(UnicodeScalar(97 + Int($0 & 15))!)] }.joined()
   }
 
   static func unpack(_ path: String, into folder: URL) throws {
     let data = try Data(contentsOf: URL(fileURLWithPath: path), options: .mappedIfSafe)
     guard data.count <= 134217728 else { throw failure("CRX exceeds 128 MiB") }
-    let zip = folder.appendingPathExtension("zip")
+    _ = try WebKitCRXSignature.verify(data)
+    let zip = folder.appendingPathComponent("package.zip")
     try zipPayload(data).write(to: zip)
     defer { try? FileManager.default.removeItem(at: zip) }
     let process = Process()

@@ -33,11 +33,18 @@
 @property NSURLSession *session;
 @property NSMutableData *body;
 @property NSUInteger limit;
+@property BOOL storeOnly;
 @property NSHTTPURLResponse *response;
 @property(copy) void (^done)(NSData *, NSHTTPURLResponse *, NSError *);
 @end
 
 @implementation WebKitRequest
+- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task willPerformHTTPRedirection:(NSHTTPURLResponse *)response newRequest:(NSURLRequest *)request completionHandler:(void (^)(NSURLRequest *))completion {
+  completion(!self.storeOnly || WebKitStoreRedirectAllowed(request.URL) ? request : nil);
+}
+- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition, NSURLCredential *))completion {
+  completion(!self.storeOnly || [challenge.protectionSpace.authenticationMethod isEqual:NSURLAuthenticationMethodServerTrust] ? NSURLSessionAuthChallengePerformDefaultHandling : NSURLSessionAuthChallengeCancelAuthenticationChallenge, nil);
+}
 - (void)URLSession:(NSURLSession *)session dataTask:(NSURLSessionDataTask *)task didReceiveResponse:(NSURLResponse *)response completionHandler:(void (^)(NSURLSessionResponseDisposition))completion {
   self.response = (NSHTTPURLResponse *)response;
   completion(response.expectedContentLength > (int64_t)self.limit ? NSURLSessionResponseCancel : NSURLSessionResponseAllow);
@@ -68,13 +75,14 @@ void WebKitObserveRequests(void) {
   });
 }
 
-NSURLSessionDataTask *WebKitFetch(NSString *text, NSUInteger limit, void (^done)(NSData *, NSHTTPURLResponse *, NSError *)) {
+static NSURLSessionDataTask *Fetch(NSString *text, NSUInteger limit, BOOL storeOnly, void (^done)(NSData *, NSHTTPURLResponse *, NSError *)) {
   NSURL *url = [NSURL URLWithString:text];
   if (!url.host.length || ![@[@"http", @"https"] containsObject:url.scheme.lowercaseString]) {
     done(nil, nil, [NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorBadURL userInfo:nil]);
     return nil;
   }
   WebKitRequest *request = [WebKitRequest new];
+  request.storeOnly = storeOnly;
   request.body = [NSMutableData data]; request.limit = limit; request.done = done;
   NSURLSessionConfiguration *config = NSURLSessionConfiguration.ephemeralSessionConfiguration;
   config.HTTPCookieStorage = nil;
@@ -82,7 +90,7 @@ NSURLSessionDataTask *WebKitFetch(NSString *text, NSUInteger limit, void (^done)
   config.URLCredentialStorage = nil;
   config.URLCache = nil;
   config.timeoutIntervalForRequest = 10;
-  config.timeoutIntervalForResource = 10;
+  config.timeoutIntervalForResource = storeOnly ? 60 : 10;
   request.session = [NSURLSession sessionWithConfiguration:config delegate:request delegateQueue:NSOperationQueue.mainQueue];
   NSURLSessionDataTask *task = [request.session dataTaskWithURL:url];
   [task resume];
@@ -130,4 +138,20 @@ void WebKitSearchCall(NSString *name, NSString *profile, NSDictionary *args, voi
     reply(result);
   });
   pending[key] = @{@"task": task, @"reply": [reply copy]};
+}
+
+BOOL WebKitStoreRedirectAllowed(NSURL *url) {
+  NSString *host = url.host.lowercaseString;
+  return [url.scheme.lowercaseString isEqual:@"https"] && !url.user && !url.password && (!url.port || url.port.integerValue == 443) &&
+    ([host isEqual:@"google.com"] || [host hasSuffix:@".google.com"] || [host isEqual:@"googleusercontent.com"] || [host hasSuffix:@".googleusercontent.com"]);
+}
+NSURLSessionDataTask *WebKitFetch(NSString *url, NSUInteger limit, void (^done)(NSData *, NSHTTPURLResponse *, NSError *)) {
+  return Fetch(url, limit, NO, done);
+}
+void WebKitFetchStore(NSString *id, void (^done)(NSData *, NSHTTPURLResponse *, NSError *)) {
+  if (id.length != 32 || [id rangeOfCharacterFromSet:[[NSCharacterSet characterSetWithCharactersInString:@"abcdefghijklmnop"] invertedSet]].location != NSNotFound) {
+    done(nil, nil, [NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorBadURL userInfo:nil]); return;
+  }
+  NSString *url = [NSString stringWithFormat:@"https://clients2.google.com/service/update2/crx?response=redirect&acceptformat=crx3&prodversion=157.0.0.0&x=id%%3D%@%%26uc", id];
+  Fetch(url, 104857600, YES, done);
 }

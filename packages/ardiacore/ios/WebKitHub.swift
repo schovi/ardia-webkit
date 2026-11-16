@@ -91,6 +91,7 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
     }
     controller.addUserScript(WKUserScript(source: WebKitPasswordScript.source, injectionTime: .atDocumentStart, forMainFrameOnly: false, in: Self.passwordWorld))
     controller.add(self, contentWorld: Self.passwordWorld, name: "ardiaPasswords")
+    WebKitExtensionStore.shared.attach(controller)
     config.userContentController = controller
     WebKitContentBlocker.shared.attach(controller)
     config.applicationNameForUserAgent = "Version/\(Self.safariVersion) Safari/605.1.15"

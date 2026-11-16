@@ -28,6 +28,16 @@ public class WebKitModule: Module {
   ].merging(LaunchConfig.shared.testInstance ? testInstanceCalls : [:]) { call, _ in call })
 
   private static let testInstanceCalls: [String: CallHandler] = [
+    "devExtensionStore": { args, reply in
+      if args.values["stats"] as? Bool == true { return reply.ok(["nonce": WebKitExtensionStore.shared.rejectedNonce, "main": WebKitExtensionStore.shared.rejectedMain, "subframe": WebKitExtensionStore.shared.rejectedSubframe]) }
+      guard let tab = WebKitHub.shared.transfers.liveTab(try args.text("tabId")), let view = tab.webView else { return reply.ok() }
+      view.callAsyncJavaScript(try args.text("script"), arguments: [:], in: nil, in: WebKitExtensionStore.world) { result in
+        switch result {
+        case .success(let value): reply.ok(value)
+        case .failure(let error): reply.fail("ERR_STORE_TEST", error.localizedDescription)
+        }
+      }
+    },
     "devExtensionPopup": { args, reply in
       func popup(_ view: NSView) -> WKWebView? {
         if let tab = view as? WebKitTab, let popup = tab.extensionPopup { return popup }

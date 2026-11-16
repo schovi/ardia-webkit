@@ -1,3 +1,4 @@
+import { storeRows } from "./store-rows.mjs";
 import { extensionRows } from "./extension-rows.mjs";
 import { passwordNative, passwordRows } from "./password-rows.mjs";
 import { importRows } from "./import-rows.mjs";
@@ -51,6 +52,7 @@ async function terminate(browser) {
 }
 
 export const rows = {
+  ...storeRows,
   ...extensionRows,
   ...passwordRows,
   ...importRows,
@@ -341,7 +343,7 @@ export const rows = {
       "packages/ardiacore/tests/webkit-window.test.mm", "packages/ardiacore/ios/ArdiaLaunchConfig.mm", ...["Host", "Store", "Bookmarks", "Network", "Services"].map(name => `packages/ardiacore/ios/webkit/${name}.mm`), "-o", windowExecutable]);
     const windowResult = await run(windowExecutable, [], {env: {ARDIA_DATA_DIR:scratch,ARDIA_BACKGROUND:"1"}});
     const extensionExecutable = join(scratch, "extension-check");
-    await run("xcrun", ["swiftc", "packages/ardiacore/tests/webkit-extensions.test.swift", "packages/ardiacore/ios/WebKitExtensionArchive.swift", "-o", extensionExecutable]);
+    await run("xcrun", ["swiftc", "packages/ardiacore/tests/webkit-extensions.test.swift", "packages/ardiacore/ios/WebKitExtensionArchive.swift", "packages/ardiacore/ios/WebKitCRXSignature.swift", "packages/ardiacore/ios/WebKitStorePolicy.swift", "-o", extensionExecutable]);
     const extensionResult = await run(extensionExecutable, []);
     const passwords = await passwordNative(scratch);
     return extensionResult.text.trim()+"; "+passwords+"; "+(await run(executable, [scratch], { env: { ARDIA_DATA_DIR: scratch, ARDIA_TEST: "networkRequests" } })).text.trim()+"; "+windowResult.text.trim()+"; "+pageResult.text.trim();
