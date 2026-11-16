@@ -126,6 +126,15 @@ Done when: both answers are written in learnings. They decide the form of Step 6
 Done when: windows, spaces, tabs, splits, omnibox and session restore work in a hidden instance, and upstream's JS tests pass.
 Effort: complexity medium, blast radius pod plus about 5 shared TS files, risk medium.
 
+**Step 3 result (2026-11-16): done.** Commits `5e19a558f` and `b20e9cd30`.
+
+- Release build with bundled JS, ad hoc signed, no entitlements: `Ardia WebKit.app`, 48 MB (zip 23 MB). Own bundle id, config folder and keychain names. Upstream's updater and legacy migration are off
+- Smoke pass in hidden instances, 11 rows, all pass: typed URL, 5 tabs, back/forward/reload/find/zoom, `target=_blank` and `window.open`, download, second window, quit, session restore, per-profile cookies, split view, content blocker
+- Two rows needed a fix: download settings (`webkit/EngineBridge.mm` answers `ac_downloads_settings`) and content-blocker rule staging (`scripts/stage-webkit-resources.sh`, lost with Chromium's embed phase)
+- 43 stand-ins hit over the pass. None blocked a row
+- JS tests: 2,267 of 2,268 pass. Tests that asserted the two-engine choice were updated. The one failure also fails on plain `v0.2.46` (a fixture date that expired)
+- Not done: window chrome polish (traffic-light position, corner radius are stand-ins), a foreground session on a real screen, a run on a second Mac
+
 **Step 4. Page parity.** Fill the `WebKitTab` stubs that Step 0 showed matter. Expected: blocked popups, Web Inspector, Little Ardia and Peek pages (`standalone`, `temporary`), warm and neighbour tabs, tab sleep (close the `WKWebView`, keep URL and title), unresponsive pages, screen sharing. Add the own `ardia://history` page.
 
 Done when: the Step 0 gap list is empty or each open row has a written reason.
