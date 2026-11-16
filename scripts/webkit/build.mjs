@@ -12,7 +12,8 @@ if (process.argv.includes("--help")) {
     console.error(`Release build: ${log}`);
     const result = await run("scripts/agent/locked", ["xcodebuild", "--wait", "500", "--", "xcodebuild",
       "-workspace", "apps/browser/macos/Ardia.xcworkspace", "-scheme", "Ardia-macOS", "-derivedDataPath", "apps/browser/build-webkit",
-      "-destination", "platform=macOS,arch=arm64", "-configuration", "Release", "-xcconfig", "apps/browser/macos/AdHoc.xcconfig", "-hideShellScriptEnvironment", "build"],
+      "-destination", "platform=macOS,arch=arm64", "-configuration", "Release", "-xcconfig", "apps/browser/macos/AdHoc.xcconfig", "-hideShellScriptEnvironment",
+      `SYMROOT=${join(BUILD, "Build/Products")}`, `OBJROOT=${join(BUILD, "Build/Intermediates.noindex")}`, "build"],
     { log, timeout: 1200000, env: { NODE_BINARY: process.execPath } });
     if (!result.text.includes("** BUILD SUCCEEDED **")) throw new Error("xcodebuild did not report success");
     console.log("** BUILD SUCCEEDED **");
