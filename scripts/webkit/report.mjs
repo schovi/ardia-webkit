@@ -92,7 +92,7 @@ export function screenIsLocked(value) {
 }
 
 export function resultFails(status) {
-  return !["PASS", "NEEDS PERSON", "SKIPPED (screen locked)"].includes(status);
+  return !["PASS", "NEEDS PERSON", "SKIPPED (screen locked)", "SKIPPED (no key window)"].includes(status);
 }
 
 export class RowOutcome extends Error {

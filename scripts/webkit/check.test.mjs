@@ -79,7 +79,7 @@ test("foreground session lock and nonfailure result states stay distinct", async
   assert.equal(screenIsLocked([{IOConsoleUsers:[{CGSSessionScreenIsLocked:false}]}]),false);
   assert.equal(screenIsLocked([{}]),false);
   assert.equal(screenIsLocked([{CGSSessionScreenIsLocked:1}]),true);
-  for(const status of ["PASS","NEEDS PERSON","SKIPPED (screen locked)"]) assert.equal(resultFails(status),false);
+  for(const status of ["PASS","NEEDS PERSON","SKIPPED (screen locked)","SKIPPED (no key window)"]) assert.equal(resultFails(status),false);
   for(const status of ["FAIL","skipped (offline)","unknown"]) assert.equal(resultFails(status),true);
 });
 

@@ -18,7 +18,7 @@ scripts/webkit/check
 
 `build` runs Release through the Xcode lock, bundles JS, signs ad hoc, and replaces `apps/browser/build-webkit/Ardia-WebKit-Release.zip`. It prints the app path and SHA-256. Its log is `apps/browser/build-webkit/build-webkit.log`.
 
-`check` rebuilds by default. It prints one result table and exits nonzero for FAIL or offline results. `NEEDS PERSON` and `SKIPPED (screen locked)` never count as passes and do not affect the exit code. It removes its scratch folder, downloads, snapshots, logs, fixture server, and app instances, including after a failed row. The `no-upstream` row keeps copies of its evidence in `apps/browser/build-webkit/step-1-evidence/`.
+`check` rebuilds by default. It prints one result table and exits nonzero for FAIL or offline results. `NEEDS PERSON`, `SKIPPED (screen locked)` and `SKIPPED (no key window)` (the session is unlocked but the app cannot become active, as in an agent-launched process on this Mac) never count as passes and do not affect the exit code. It removes its scratch folder, downloads, snapshots, logs, fixture server, and app instances, including after a failed row. The `no-upstream` row keeps copies of its evidence in `apps/browser/build-webkit/step-1-evidence/`.
 
 ## Run one row
 

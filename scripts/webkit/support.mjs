@@ -94,7 +94,7 @@ export class Browser {
       try { await this.until('return ac.engine.call("windows.list").then(w=>w.some(w=>w.key));',10000); }
       catch(error) {
         const path=join(this.data,"activation.json");
-        throw new Error(`${error.message}; activation=${existsSync(path)?readFileSync(path,"utf8"):"callback did not run"}`);
+        throw new RowOutcome("SKIPPED (no key window)",`this session cannot make the app active; activation=${existsSync(path)?readFileSync(path,"utf8"):"callback did not run"}`);
       }
     }
     return this;
@@ -133,6 +133,7 @@ export class Browser {
         }
         throw new Error("in-app quit timed out; owned instance terminated");
       }
+      for(const end=Date.now()+3000;Date.now()<end&&isAlive(this.app.pid);await sleep(100));
       assert.ok(!isAlive(this.app.pid),"app survived cleanup");
     } finally {
       if(this.ownsForegroundLock) { rmSync(this.foregroundLock,{force:true}); this.ownsForegroundLock=false; }

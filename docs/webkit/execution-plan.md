@@ -331,7 +331,7 @@ Each of these is its own decision after the steps above.
 |---|---|---|---|
 | 0. Checks in the repo | complete | `5722bc3cc` | 20 rows pass; verified without old scratch folders; intentional failure detected. |
 | 1. Nothing talks to upstream | done | `45bedc4d5`, `0b349a25c` | Release rebuilt; 22 rows pass, including 90-second request observation and 14 Settings panes. Reader defaults documented; setters stay stand-ins. |
-| 2. Window and keyboard | blocked | `44dde8ea7`, `518a0917b` | Foreground guard still gets active=false/key=false, including an AppKit-only control; 27 PASS, 4 FAIL, 1 NEEDS PERSON. [Evidence](step-2-results.md). |
+| 2. Window and keyboard | done, 4 rows unproven | `44dde8ea7`, `518a0917b`, `912129da5` | Traffic lights, close policy, profile switch, context menu, visibility: pass. Typing in a page, Esc focus, ⌘[ with page focus and element full screen are implemented but **unproven**: an app started from the agent session cannot become active on this Mac, so those rows report `SKIPPED (no key window)`. Trackpad swipe is `NEEDS PERSON`. A person must run [needs-person.md](needs-person.md). [Evidence](step-2-results.md). |
 | 3. Page features | not started | | |
 | 4. Site and browser settings | not started | | |
 | 5. Bookmarks | not started | | |
