@@ -45,10 +45,10 @@ The Settings tour also found malformed extension and bookmark responses during s
 
 | Pane or path | Call | Placeholder | Future step |
 |---|---|---|---|
-| General prefetch and Extensions | `ArdiaServices.listExtensions` / `extensions.list` | `{extensions: []}` | 8 |
-| Startup and Extensions | `ac_extensions_load_health` | `{dropped: 0, enabled: 0, disabled: {}}` | 8 |
-| Startup and Extensions | `ac_extensions_watch_actions` | `{}` acknowledgement; no watch | 8 |
+| General prefetch and Extensions | `ArdiaServices.listExtensions` / `extensions.list` | Step 8: reads installed metadata from the profile SQLite store; private profiles return an empty list. | Implemented |
+| Startup and Extensions | `ac_extensions_load_health` | Step 8: counts enabled records and disabled records by reason from the profile store. | Implemented |
+| Startup and Extensions | `ac_extensions_watch_actions` | Step 8: registers the profile action watcher; WebKit action updates emit `extensions.action` with `{profile, id, kind}`. | Implemented |
 | Startup before Settings | `ac_bookmarks_watch` | Step 5: registers a profile watcher; emits `bookmarks.changed` with `{profile}` when the model first loads. `apply` suppresses notifications, matching Chromium. | Implemented |
 | Startup before Settings | `ac_bookmarks_tree` | Step 5: profile SQLite tree, stable lowercase UUIDs, ordered `bar` and `other` roots, children and sync keys. Private calls use the base profile. | Implemented |
 
-`setEnabled`, `setList:enabled`, and `setAllowed:onHost` now control WebKit in Step 4. Only the extension placeholders above remain. Step 5 also implements bookmark operations and Netscape HTML export. The tour checks all 14 available top-level panes, including advanced panes; it does not test sheets or setting actions.
+`setEnabled`, `setList:enabled`, and `setAllowed:onHost` now control WebKit in Step 4. Step 8 replaces the three extension placeholders above. Step 5 also implements bookmark operations and Netscape HTML export. The tour checks all 14 available top-level panes, including advanced panes; it does not test sheets or setting actions.
