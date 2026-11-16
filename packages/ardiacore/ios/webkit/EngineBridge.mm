@@ -1,24 +1,30 @@
 #import "../ArdiaEngineBridge.h"
 #import "../ArdiaLaunchConfig.h"
 #import "Store.h"
+#import "../ArdiaServices.h"
 #import "Network.h"
 
 @implementation ArdiaEngineBridge (WebKitDownloads)
 + (void)call:(NSString *)name profile:(NSString *)profile args:(NSString *)args completion:(void (^)(NSString *))completion {
-  if ([name isEqualToString:@"ac_downloads_settings"]) {
-    NSString *folder = [ArdiaLaunchConfig.shared instance:@"downloadsDir"];
-    if (!folder) folder = NSSearchPathForDirectoriesInDomains(NSDownloadsDirectory, NSUserDomainMask, YES).firstObject;
-    NSDictionary *settings = @{@"folder": folder, @"askWhereToSave": @NO};
-    NSData *data = [NSJSONSerialization dataWithJSONObject:settings options:0 error:nil];
-    completion([[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]);
-    return;
-  }
   NSDictionary *values = args ? [NSJSONSerialization JSONObjectWithData:[args dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil] : @{};
   if (![values isKindOfClass:NSDictionary.class]) { completion(@"{\"error\":\"arguments must be an object\"}"); return; }
   void (^answer)(NSDictionary *) = ^(NSDictionary *result) {
     NSData *data = [NSJSONSerialization dataWithJSONObject:result options:0 error:nil];
     completion([[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]);
   };
+  if ([name isEqual:@"ac_downloads_set_settings"]) {
+    if ([values[@"folder"] isKindOfClass:NSString.class] && [values[@"folder"] isAbsolutePath])
+      WebKitSetProfileSetting(profile, @"downloads", @"folder", values[@"folder"]);
+    if ([values[@"askWhereToSave"] isKindOfClass:NSNumber.class])
+      WebKitSetProfileSetting(profile, @"downloads", @"askWhereToSave", @([values[@"askWhereToSave"] boolValue]));
+    return answer(@{});
+  }
+  if ([name isEqual:@"ac_downloads_settings"]) {
+    NSMutableDictionary *settings = [WebKitProfileSettings(profile, @"downloads") mutableCopy];
+    if (!settings[@"folder"]) settings[@"folder"] = [ArdiaLaunchConfig.shared instance:@"downloadsDir"] ?: NSSearchPathForDirectoriesInDomains(NSDownloadsDirectory, NSUserDomainMask, YES).firstObject;
+    if (!settings[@"askWhereToSave"]) settings[@"askWhereToSave"] = @NO;
+    return answer(settings);
+  }
   static NSDictionary *defaults = @{
     @"ac_bookmarks_watch": @{}, @"ac_extensions_watch_actions": @{},
     @"ac_extensions_load_health": @{@"dropped": @0, @"enabled": @0, @"disabled": @{}},

@@ -24,3 +24,13 @@ Locked-session rows need another check run after unlocking this Mac. Automated f
 | Open a fixture URL from another app with Little Ardia enabled | Small window opens; Open in Ardia preserves the page in the main window |
 
 Automated checks log Inspector and HTTP auth requests in background mode. They do not prove visible panels or physical keyboard shortcuts.
+
+## Step 4 settings
+
+| Action | Expected result |
+|---|---|
+| Choose a scratch download folder, enable Ask Where to Save, and download a fixture file | The save panel starts in that folder. Cancel saves nothing. Relaunch retains both preferences. |
+| Open About in a foreground scratch instance | The panel shows the app version and system WebKit version, without Chromium wording. |
+| Allow or block location in Settings, then request location from a trusted test page | The stored setting remains visible. Automated checks prove storage only and never request macOS location consent. |
+
+Camera and microphone checks invoke the real WKUIDelegate decision callback using a fixture frame. They never start capture or request macOS consent. Hardware capture remains unchecked.

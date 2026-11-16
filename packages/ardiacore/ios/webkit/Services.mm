@@ -19,6 +19,40 @@ extern "C" NSDictionary *ArdiaWebKitContentBlockerState(void);
 + (void)searchEngineList:(NSString *)profile reply:(ArdiaServiceReply)reply {
   reply(@{@"list": @{@"engines": @[]}}, nil);
 }
++ (void)zoomLevels:(NSString *)profile reply:(ArdiaServiceReply)reply {
+  reply(WebKitProfileSettings(profile, @"zoom"), nil);
+}
++ (void)setZoom:(double)zoom profile:(NSString *)profile host:(NSString *)host {
+  if (!isfinite(zoom) || zoom < 0.25 || zoom > 5 || !host.length) return;
+  WebKitSetProfileSetting(profile, @"zoom", host.lowercaseString, zoom == 1 ? nil : @(zoom));
+}
++ (void)siteSettings:(NSString *)profile origin:(NSString *)origin reply:(ArdiaServiceReply)reply {
+  NSDictionary *saved = WebKitProfileSettings(profile, @"sites")[origin] ?: @{};
+  NSMutableDictionary *settings = [NSMutableDictionary dictionary];
+  for (NSString *kind in @[@"camera", @"microphone", @"location", @"popups", @"sound"]) {
+    NSString *fallback = [kind isEqual:@"sound"] ? @"allow" : [kind isEqual:@"popups"] ? @"block" : @"ask";
+    settings[kind] = @{@"value": saved[kind] ?: fallback, @"isDefault": @(!saved[kind])};
+  }
+  reply(settings, nil);
+}
++ (void)setSiteSetting:(NSString *)value profile:(NSString *)profile origin:(NSString *)origin type:(NSString *)type {
+  if (![@[@"camera", @"microphone", @"location", @"popups", @"sound"] containsObject:type]) return;
+  NSURL *url = [NSURL URLWithString:origin];
+  if (!url.host.length || ![@[@"http", @"https"] containsObject:url.scheme]) return;
+  NSMutableDictionary *settings = [WebKitProfileSettings(profile, @"sites")[origin] mutableCopy] ?: [NSMutableDictionary dictionary];
+  if ([@[@"allow", @"block"] containsObject:value]) settings[type] = value;
+  else [settings removeObjectForKey:type];
+  WebKitSetProfileSetting(profile, @"sites", origin, settings.count ? settings : nil);
+}
++ (void)siteSettingsOrigins:(NSString *)profile reply:(ArdiaServiceReply)reply {
+  reply([WebKitProfileSettings(profile, @"sites").allKeys sortedArrayUsingSelector:@selector(compare:)], nil);
+}
++ (void)resetSiteSettings:(NSString *)profile origin:(NSString *)origin {
+  WebKitSetProfileSetting(profile, @"sites", origin, nil);
+}
++ (void)watchDownloadEvents {}
++ (void)watchDownloads:(NSString *)profile {}
+
 @end
 
 NSDictionary *WebKitContentBlockerSettings(NSDictionary *state, NSDictionary *manifest) {
@@ -64,6 +98,29 @@ NSDictionary *WebKitContentBlockerSettings(NSDictionary *state, NSDictionary *ma
   if (NSThread.isMainThread) answer();
   else dispatch_async(dispatch_get_main_queue(), answer);
 }
++ (void)setEnabled:(BOOL)enabled completion:(void (^)(NSString *))completion {
+  ArdiaWebKitContentBlockerState();
+  [NSNotificationCenter.defaultCenter postNotificationName:@"ArdiaContentBlockerDidChange" object:nil userInfo:@{@"enabled": @(enabled)}];
+  completion(nil);
+}
++ (void)setList:(NSString *)listId enabled:(BOOL)enabled completion:(void (^)(NSString *))completion {
+  ArdiaWebKitContentBlockerState();
+  [NSNotificationCenter.defaultCenter postNotificationName:@"ArdiaContentBlockerDidChange" object:nil userInfo:@{@"list": listId, @"listEnabled": @(enabled)}];
+  completion(nil);
+}
++ (void)isAllowedOnHost:(NSString *)host completion:(void (^)(BOOL))completion {
+  [self state:^(NSDictionary *state) {
+    BOOL allowed = NO;
+    for (NSString *domain in state[@"allowedHosts"]) if ([host isEqual:domain] || [host hasSuffix:[@"." stringByAppendingString:domain]]) allowed = YES;
+    completion(allowed);
+  }];
+}
++ (void)setAllowed:(BOOL)allowed onHost:(NSString *)host completion:(void (^)(NSString *))completion {
+  ArdiaWebKitContentBlockerState();
+  [NSNotificationCenter.defaultCenter postNotificationName:@"ArdiaContentBlockerDidChange" object:nil userInfo:@{@"host": host, @"allowed": @(allowed)}];
+  completion(nil);
+}
+
 @end
 
 NSView *WebKitFindNativeView(NSView *view, NSString *identifier) {

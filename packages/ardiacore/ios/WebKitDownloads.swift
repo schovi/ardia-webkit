@@ -201,6 +201,7 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
       completionHandler(file)
     }
     resolveDestination(for: item.profile) { folder, ask in
+      if ask && LaunchConfig.shared.background { NSLog("[webkit] save panel (background mode, not shown)") }
       guard ask, !LaunchConfig.shared.background else { return accept(folder.appendingPathComponent(name), false) }
       let panel = NSSavePanel()
       panel.directoryURL = folder
@@ -273,7 +274,7 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
         DispatchQueue.main.async {
           if let data { item.resumeData = data }
           if item.download === download { self?.detach(item) }
-          if item.phase == .pausing { item.phase = .paused }
+          if item.phase == .pausing { item.phase = .paused; self?.report(item) }
         }
       }
     case "resume":

@@ -123,3 +123,13 @@ The background app keeps an internal key-window reference without making a real 
 Background WebKit menus write `context-menu.json`. A title in `context-menu.json.pick` selects an enabled item through its native action. The app logs and dismisses the menu. The context-menu row verifies the new tab, copied URL, and separate page menu.
 
 Window rows retain `normal.png` and `fullscreen.png` in `apps/browser/build-webkit/step-2-evidence/`. Frame snapshots render the titlebar and cache traffic buttons separately because those buttons need not have layers. The native row also builds `packages/ardiacore/tests/webkit-window.test.mm` with AppKit, WebKit, and QuartzCore.
+
+## Site and browser settings
+
+Step 4 adds `zoom-site`, `site-settings`, `clear-site-data`, `blocker-controls`, `download-settings`, `profiles`, `search-engines`, and `about`.
+
+Settings rows use the local fixture. Persistence rows relaunch on the same scratch data. `site-settings` sends a test message from a real WebKit frame into the media permission delegate. The test never calls `getUserMedia` or geolocation. Location coverage stops at storage and the Settings response.
+
+`download-settings` uses a slow fixture with Range support for pause, resume, and cancel. Background mode logs the save-panel request and uses the configured scratch folder. A person must verify the actual picker. The About test invokes the native menu action; background mode logs its versions instead of opening a panel.
+
+The native row links `Store.mm` into the Swift page self-check through the public settings declarations. Popup migration and private grants therefore use the actual SQLite implementation.

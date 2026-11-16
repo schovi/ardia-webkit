@@ -22,6 +22,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
   var blockedPopups: [String: (request: URLRequest, origin: String)] = [:]
   var authenticationReply: ((URLSession.AuthChallengeDisposition, URLCredential?) -> Void)?
   var authenticationSheet: NSAlert?
+  var permissionTestReply: ((Bool) -> Void)?
   let browserId = WebKitHub.shared.nextBrowserId()
 
   private(set) var webView: WebKitWebView?
@@ -225,6 +226,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
   func loadURL(_ url: String, userInitiated: Bool) {
     guard let view = webView, let target = URL(string: url) else { return }
     showingError = false
+    if loadVersionPage(target, in: view) { return }
     if target.isFileURL {
       view.loadFileURL(target, allowingReadAccessTo: target.deletingLastPathComponent())
     } else {
@@ -259,7 +261,18 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     for frame in mediaFrames.values where !frame.isMainFrame { runInWorld(code, frame: frame) }
   }
 
-  private var muteScript: String { "window.__ardia && window.__ardia.mute(\(muted ? "true" : "false"))" }
+  private var effectiveMuted: Bool {
+    muted || WebKitHub.shared.stores.setting(profile: profile, origin: webView?.url.flatMap(Origins.of) ?? "", kind: "sound") == "block"
+  }
+
+  private var muteScript: String { "window.__ardia && window.__ardia.mute(\(effectiveMuted ? "true" : "false"))" }
+
+  func applySitePreferences() {
+    if !host.isEmpty { webView?.pageZoom = WebKitHub.shared.stores.zoom(profile: profile, host: host) }
+    setMuted(muted)
+    if let view = webView { WebKitHub.shared.permissions.reconcileCapture(view, profile: profile) }
+    emitZoom()
+  }
 
   private func runInWorld(_ code: String, frame: WKFrameInfo? = nil, completion: ((Any?) -> Void)? = nil) {
     guard let view = webView else {
@@ -439,9 +452,9 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     case "media":
       guard let dict else { return }
       mediaFrames[frame] = frameInfo
-      if (dict["muted"] as? Bool ?? false) != muted { runInWorld(muteScript, frame: main ? nil : frameInfo) }
+      if (dict["muted"] as? Bool ?? false) != effectiveMuted { runInWorld(muteScript, frame: main ? nil : frameInfo) }
       if dict["playing"] as? Bool == true { playingFrames.insert(frame) } else { playingFrames.remove(frame) }
-      emit("media", ["playing": !playingFrames.isEmpty, "muted": muted])
+      emit("media", ["playing": !playingFrames.isEmpty, "muted": effectiveMuted])
     case "nowPlaying":
       guard let view = webView else { return }
       if let dict, !dict.isEmpty { mediaFrames[frame] = frameInfo }
@@ -472,6 +485,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
       return
     }
     let scheme = url.scheme?.lowercased() ?? ""
+    if ["ardia", "chrome"].contains(scheme), url.host == "version" { return decide(.allow) }
     let webSchemes: Set<String> = ["http", "https", "file", "about", "data", "blob", "javascript", "webkit-pdfjs-viewer"]
     if !webSchemes.contains(scheme) {
       decide(.cancel)
@@ -529,14 +543,14 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
       let zoom = WebKitHub.shared.stores.zoom(profile: profile, host: host)
       if abs(webView.pageZoom - zoom) > 0.001 { webView.pageZoom = zoom }
     }
-    if muted { setMuted(true) }
+    setMuted(muted)
     emitZoom()
     emitSecurity()
     queueNavigation()
   }
 
   func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-    if muted { setMuted(true) }
+    setMuted(muted)
     updateErrorColor()
     queueNavigation()
   }

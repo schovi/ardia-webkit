@@ -21,4 +21,4 @@ export type PasskeyAccess = { entitled: boolean; status: PasskeyAccessStatus };
 
 export const NO_PASSKEY_ACCESS: PasskeyAccess = { entitled: false, status: "entitlementRequired" };
 
-export const WEBKIT_SITE_SETTINGS: readonly SiteSettingType[] = ["camera", "microphone"];
+export const WEBKIT_SITE_SETTINGS: readonly SiteSettingType[] = ["camera", "microphone", "location", "popups", "sound"];

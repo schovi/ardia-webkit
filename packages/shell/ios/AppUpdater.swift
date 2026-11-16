@@ -142,6 +142,10 @@ public final class AppUpdater: NSObject {
   static let aboutNotice = "© 2026 Mantra Patel. Ardia is free software under the GNU General Public License v3, with ABSOLUTELY NO WARRANTY. Its source is at the link below. It's built on WebKit and uBlock Origin, each under its own license."
 
   @objc public func showAbout(_ sender: Any?) {
+    if LaunchConfig.shared.background {
+      NSLog("[webkit] About: app=%@ WebKit=%@ (background mode, not shown)", Self.displayVersion, ArdiaHost.engineInfo["webkitVersion"] as? String ?? "unknown")
+      return
+    }
     NSApp.orderFrontStandardAboutPanel(options: [.applicationVersion: Self.displayVersion, .credits: Self.aboutCredits])
   }
 
@@ -160,7 +164,8 @@ public final class AppUpdater: NSObject {
       ("License", "\(repository)/blob/v\(version)/LICENSE"),
       ("Credits", "\(repository)/blob/v\(version)/NOTICE"),
     ]
-    let credits = NSMutableAttributedString(string: "\(aboutNotice)\n\n", attributes: plain)
+    let engineVersion = ArdiaHost.engineInfo["webkitVersion"] as? String ?? "unknown"
+    let credits = NSMutableAttributedString(string: "WebKit \(engineVersion)\n\n\(aboutNotice)\n\n", attributes: plain)
     for (index, (title, url)) in links.enumerated() {
       if index > 0 { credits.append(NSAttributedString(string: "  ·  ", attributes: plain)) }
       var linked = plain

@@ -27,8 +27,6 @@ final class WebKitStores {
   }
 
   struct StoreState {
-    var remembered: [SiteKey: Bool] = [:]
-    var zoom: [String: Double] = [:]
     var externalAllowances: [SiteKey: ExternalGrant] = [:]
   }
 
@@ -37,29 +35,35 @@ final class WebKitStores {
     let token: String
   }
 
-  private var popupGrants: [String: Set<String>] = [:]
-
-  private var popupGrantsURL: URL {
-    URL(fileURLWithPath: ArdiaHost.dataDirectory).appendingPathComponent("popup-grants.json")
+  init() {
+    let url = URL(fileURLWithPath: ArdiaHost.dataDirectory).appendingPathComponent("popup-grants.json")
+    if let data = try? Data(contentsOf: url), let profiles = try? JSONDecoder().decode([String: Set<String>].self, from: data) {
+      for (profile, origins) in profiles where !Self.isPrivate(profile) {
+        for origin in origins { setSetting(profile: profile, origin: origin, kind: "popups", value: "allow") }
+      }
+      if profiles.allSatisfy({ profile, origins in Self.isPrivate(profile) || origins.allSatisfy { allowsPopups(profile: profile, origin: $0) } }) {
+        try? FileManager.default.removeItem(at: url)
+      }
+    }
   }
 
   func allowsPopups(profile: String, origin: String) -> Bool {
-    if Self.isPrivate(profile) { return popupGrants[id(of: profile).wireKey]?.contains(origin) == true }
-    let grants = (try? Data(contentsOf: popupGrantsURL)).flatMap { try? JSONDecoder().decode([String: Set<String>].self, from: $0) } ?? [:]
-    return grants[profile]?.contains(origin) == true
+    setting(profile: profile, origin: origin, kind: "popups") == "allow"
   }
 
   func allowPopups(profile: String, origin: String) {
-    if Self.isPrivate(profile) {
-      popupGrants[id(of: profile).wireKey, default: []].insert(origin)
-      return
-    }
-    var grants = (try? Data(contentsOf: popupGrantsURL)).flatMap { try? JSONDecoder().decode([String: Set<String>].self, from: $0) } ?? [:]
-    grants[profile, default: []].insert(origin)
-    do {
-      try FileManager.default.createDirectory(at: popupGrantsURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-      try JSONEncoder().encode(grants).write(to: popupGrantsURL, options: .atomic)
-    } catch { NSLog("[webkit] cannot save popup permission: %@", error.localizedDescription) }
+    setSetting(profile: profile, origin: origin, kind: "popups", value: "allow")
+  }
+
+  func setting(profile: String, origin: String, kind: String) -> String? {
+    (WebKitProfileSettings(profile, "sites")[origin] as? [String: String])?[kind]
+  }
+
+  func setSetting(profile: String, origin: String, kind: String, value: String) {
+    _ = id(of: profile)
+    var settings = WebKitProfileSettings(profile, "sites")[origin] as? [String: String] ?? [:]
+    if value == "allow" || value == "block" { settings[kind] = value } else { settings.removeValue(forKey: kind) }
+    WebKitSetProfileSetting(profile, "sites", origin, settings.isEmpty ? nil : settings)
   }
 
   private var persistent: [String: WKWebsiteDataStore] = [:]
@@ -123,22 +127,24 @@ final class WebKitStores {
     states[id] = state
   }
 
-  func zoom(profile: String, host: String) -> Double { state(id(of: profile)).zoom[host] ?? 1 }
+  func zoom(profile: String, host: String) -> Double { WebKitProfileSettings(profile, "zoom")[host] as? Double ?? 1 }
 
   func setZoom(_ zoom: Double, profile: String, host: String) {
-    update(id(of: profile)) { state in
-      if zoom == 1 { state.zoom.removeValue(forKey: host) } else { state.zoom[host] = zoom }
-    }
+    guard zoom.isFinite, (0.25...5).contains(zoom), !host.isEmpty else { return }
+    WebKitSetProfileSetting(profile, "zoom", host.lowercased(), zoom == 1 ? nil : zoom)
   }
 
   func forgetSitePermissions(of profile: String) {
+    for origin in WebKitProfileSettings(profile, "sites").keys {
+      if let origin = origin as? String { WebKitSetProfileSetting(profile, "sites", origin, nil) }
+    }
     update(id(of: profile)) { state in
-      state.remembered = [:]
       state.externalAllowances = [:]
     }
   }
 
   func endPrivateSession(_ name: String) -> (id: StoreID, store: WKWebsiteDataStore)? {
+    WebKitDeleteProfileStore("incognito@" + name)
     guard let ended = privateSessions.removeValue(forKey: name) else { return nil }
     let id = StoreID.privateSession(name: name, token: ended.token)
     states.removeValue(forKey: id)
@@ -162,9 +168,14 @@ final class WebKitStores {
   func takeResumeHost(of profile: String) -> WKWebView? { resumeHosts.removeValue(forKey: .profile(profile)) }
 
   func forgetProfile(_ profile: String) -> WKWebsiteDataStore? {
+    states.removeValue(forKey: .profile(profile))
     deletedProfiles[profile] = .nonPersistent()
     return persistent.removeValue(forKey: profile)
   }
+
+  var loadedProfiles: [String] { persistent.keys.sorted() }
+
+  func releaseProfile(_ profile: String) { persistent.removeValue(forKey: profile) }
 
   func holdForTest(_ profile: String) { heldForTest[profile] = dataStore(for: profile) }
 }

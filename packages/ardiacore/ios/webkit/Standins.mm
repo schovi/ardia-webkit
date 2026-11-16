@@ -10,7 +10,6 @@
 
 @implementation ArdiaHost
 + (BOOL )isStarted { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
-+ (NSDictionary<NSString *, id> *)engineInfo { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
 + (NSArray<NSDictionary<NSString *, id> *> *)displayMediaSources { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
 + (BOOL )screenRecordingAllowed { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
 + (BOOL)requestScreenRecording { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
@@ -34,9 +33,6 @@
 + (void)beginTracing:(void (^)(BOOL started))completion { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (completion) completion({}); }
 + (void)endTracing:(BOOL)keep completion:(void (^)(NSString *_Nullable path))completion { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (completion) completion({}); }
 + (BOOL )isTracing { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
-+ (void)deleteProfileData:(NSString *)profile completion:(void (^)(NSArray<NSString *> *remaining))completion { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (completion) completion({}); }
-+ (void)releaseProfile:(NSString *)profile { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); }
-+ (NSArray<NSString *> *)loadedProfiles { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
 + (BOOL)stopCapture:(NSString *)tabId { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
 + (BOOL)showAutofillSuggestions:(NSString *)tabId passwords:(BOOL)passwords { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
 + (int)chromeTabIdOfTab:(NSString *)tabId { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
@@ -273,8 +269,6 @@
            reply:(ArdiaServiceReply)reply { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (reply) reply({}, {}); }
 + (void)deleteAutofillEntry:(NSString *)entryId profile:(NSString *)profile reply:(ArdiaServiceReply)reply { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (reply) reply({}, {}); }
 + (void)revealCardNumber:(NSString *)cardId profile:(NSString *)profile reply:(ArdiaServiceReply)reply { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (reply) reply({}, {}); }
-+ (void)zoomLevels:(NSString *)profile reply:(ArdiaServiceReply)reply { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (reply) reply({}, {}); }
-+ (void)setZoom:(double)zoom profile:(NSString *)profile host:(NSString *)host { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); }
 + (NSDictionary<NSString *, id> *)inspectUnpacked:(NSString *)path { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
 + (void)installExtension:(NSString *)path profile:(NSString *)profile reply:(ArdiaServiceReply)reply { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (reply) reply({}, {}); }
 + (void)installCrx:(NSString *)path profile:(NSString *)profile reply:(ArdiaServiceReply)reply { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (reply) reply({}, {}); }
@@ -283,13 +277,7 @@
 + (void)reloadExtension:(NSString *)extensionId profile:(NSString *)profile reply:(ArdiaServiceReply)reply { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (reply) reply({}, {}); }
 + (void)configureExtension:(NSString *)extensionId profile:(NSString *)profile options:(NSDictionary<NSString *, id> *)options
                      reply:(ArdiaServiceReply)reply { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (reply) reply({}, {}); }
-+ (void)watchDownloadEvents { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); }
-+ (void)watchDownloads:(NSString *)profile { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); }
 + (void)downloadCommand:(NSString *)command id:(NSString *)downloadId { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); }
-+ (void)siteSettings:(NSString *)profile origin:(NSString *)origin reply:(ArdiaServiceReply)reply { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (reply) reply({}, {}); }
-+ (void)setSiteSetting:(NSString *)value profile:(NSString *)profile origin:(NSString *)origin type:(NSString *)type { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); }
-+ (void)siteSettingsOrigins:(NSString *)profile reply:(ArdiaServiceReply)reply { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (reply) reply({}, {}); }
-+ (void)resetSiteSettings:(NSString *)profile origin:(NSString *)origin { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); }
 + (void)clearSiteData:(NSString *)profile origin:(NSString *)origin reply:(ArdiaServiceReply)reply { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (reply) reply({}, {}); }
 + (void)externalAppAllowances:(NSString *)profile reply:(ArdiaServiceReply)reply { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (reply) reply({}, {}); }
 + (void)removeExternalAppAllowance:(NSString *)profile origin:(NSString *)origin scheme:(NSString *)scheme { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); }
@@ -298,10 +286,6 @@
 @end
 
 @implementation ArdiaContentBlocker
-+ (void)setEnabled:(BOOL)enabled completion:(void (^)(NSString *_Nullable error))completion { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (completion) completion({}); }
-+ (void)setList:(NSString *)listId enabled:(BOOL)enabled completion:(void (^)(NSString *_Nullable error))completion { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (completion) completion({}); }
-+ (void)isAllowedOnHost:(NSString *)host completion:(void (^)(BOOL allowed))completion { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (completion) completion({}); }
-+ (void)setAllowed:(BOOL)allowed onHost:(NSString *)host completion:(void (^)(NSString *_Nullable error))completion { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (completion) completion({}); }
 + (void)devFailNextMessage { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); }
 + (void)devDelayNextLoad:(double)ms { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); }
 @end

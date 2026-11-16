@@ -28,6 +28,13 @@ public class WebKitModule: Module {
   ].merging(LaunchConfig.shared.testInstance ? testInstanceCalls : [:]) { call, _ in call })
 
   private static let testInstanceCalls: [String: CallHandler] = [
+    "devPermission": { args, reply in
+      guard let tab = WebKitHub.shared.transfers.liveTab(try args.text("tabId")), let view = tab.webView else { return reply.ok(false) }
+      let kind = try args.text("kind")
+      guard ["camera", "microphone"].contains(kind) else { return reply.ok(false) }
+      tab.permissionTestReply = { reply.ok($0) }
+      view.evaluateJavaScript("window.webkit.messageHandlers.ardia.postMessage({kind:'devPermission',data:\(WebKitTab.jsString(kind))})", in: nil, in: WebKitHub.world) { _ in }
+    },
     "devOpenURLs": { args, reply in
       let urls = try args.strings("urls").compactMap(URL.init(string:))
       NSApp.delegate?.application?(NSApp, open: urls)

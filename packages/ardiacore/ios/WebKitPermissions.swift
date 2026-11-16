@@ -8,11 +8,12 @@ final class WebKitPermissions {
   private struct Pending {
     let browserId: Int32
     let store: StoreID
+    let profile: String
     let keys: [SiteKey]
     let decide: (Bool) -> Void
   }
 
-  static let kinds = ["camera", "microphone"]
+  static let kinds = ["camera", "microphone", "location", "popups", "sound"]
 
   private unowned let stores: WebKitStores
   private unowned let transfers: WebKitTransfers
@@ -27,13 +28,12 @@ final class WebKitPermissions {
   func request(browserId: Int32, tabId: String?, profile: String, origin: String, kinds: [String], decide: @escaping (Bool) -> Void) {
     let store = stores.id(of: profile)
     let keys = kinds.map { SiteKey(site: origin, kind: $0) }
-    let remembered = stores.state(store).remembered
-    let answers = keys.map { remembered[$0] }
+    let answers = keys.map { stores.setting(profile: profile, origin: $0.site, kind: $0.kind).map { $0 == "allow" } }
     if answers.contains(false) { return decide(false) }
     if answers.allSatisfy({ $0 == true }) { return decide(true) }
     lastRequest += 1
     let id = "wk-permission-\(lastRequest)"
-    pending[id] = Pending(browserId: browserId, store: store, keys: keys, decide: decide)
+    pending[id] = Pending(browserId: browserId, store: store, profile: profile, keys: keys, decide: decide)
     ArdiaEvents.emit("permissions.requested", data: ["id": id, "tabId": tabId ?? NSNull(), "origin": origin, "permissions": kinds])
   }
 
@@ -41,7 +41,7 @@ final class WebKitPermissions {
     guard let request = pending.removeValue(forKey: id) else { return }
     let allowed = result == "accept"
     if remember && result != "dismiss" {
-      stores.update(request.store) { state in for key in request.keys { state.remembered[key] = allowed } }
+      for key in request.keys { stores.setSetting(profile: request.profile, origin: key.site, kind: key.kind, value: allowed ? "allow" : "block") }
     }
     request.decide(allowed)
   }
@@ -63,25 +63,17 @@ final class WebKitPermissions {
   }
 
   func siteSettings(profile: String, origin: String) -> [String: [String: Any]] {
-    let remembered = stores.state(stores.id(of: profile)).remembered
     var settings: [String: [String: Any]] = [:]
     for kind in Self.kinds {
-      let answer = remembered[SiteKey(site: origin, kind: kind)]
-      settings[kind] = ["value": answer.map { $0 ? "allow" : "block" } ?? "ask", "isDefault": answer == nil]
+      let answer = stores.setting(profile: profile, origin: origin, kind: kind)
+      settings[kind] = ["value": answer ?? (kind == "sound" ? "allow" : kind == "popups" ? "block" : "ask"), "isDefault": answer == nil]
     }
     return settings
   }
 
   func setSiteSetting(profile: String, origin: String, kind: String, value: String) {
     guard Self.kinds.contains(kind) else { return }
-    let key = SiteKey(site: origin, kind: kind)
-    stores.update(stores.id(of: profile)) { state in
-      switch value {
-      case "allow": state.remembered[key] = true
-      case "block": state.remembered[key] = false
-      default: state.remembered.removeValue(forKey: key)
-      }
-    }
+    stores.setSetting(profile: profile, origin: origin, kind: kind, value: value)
     guard value == "block" else { return }
     let store = stores.dataStore(for: profile)
     for view in transfers.views.compactMap({ $0 as? WebKitWebView })
@@ -91,8 +83,7 @@ final class WebKitPermissions {
   }
 
   func reconcileCapture(_ view: WebKitWebView, profile: String) {
-    let remembered = stores.state(stores.id(of: profile)).remembered
-    for (kind, origins) in view.captureOrigins where origins.contains(where: { remembered[SiteKey(site: $0, kind: kind)] == false }) {
+    for (kind, origins) in view.captureOrigins where origins.contains(where: { stores.setting(profile: profile, origin: $0, kind: kind) == "block" }) {
       view.stopCapture(kind)
     }
   }

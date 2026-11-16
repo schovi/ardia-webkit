@@ -1,3 +1,4 @@
+import { settingsRows } from "./settings-rows.mjs";
 import assert from "node:assert/strict";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -46,6 +47,7 @@ async function terminate(browser) {
 }
 
 export const rows = {
+  ...settingsRows,
   ...pageRows,
   ...windowRows,
   "settings-tour": settingsTour,
@@ -314,10 +316,14 @@ export const rows = {
   },
   native: async ({ scratch }) => {
     const pageExecutable = join(scratch, "page-check");
-    await run("xcrun", ["swiftc", "packages/ardiacore/tests/webkit-page.test.swift", "packages/ardiacore/ios/WebKitPageScript.swift", "packages/ardiacore/ios/WebKitStores.swift", "-o", pageExecutable]);
+    const storeObject = join(scratch, "page-store.o"), hostObject = join(scratch, "page-host.o");
+    for (const [source, output] of [["packages/ardiacore/ios/webkit/Store.mm", storeObject], ["packages/ardiacore/tests/webkit-page-store.mm", hostObject]]) {
+      await run("xcrun", ["clang++", "-std=c++20", "-fobjc-arc", "-fblocks", "-c", source, "-o", output]);
+    }
+    await run("xcrun", ["swiftc", "-import-objc-header", "packages/ardiacore/ios/ArdiaServices.h", storeObject, hostObject, "-lsqlite3", "-lc++", "packages/ardiacore/tests/webkit-page.test.swift", "packages/ardiacore/ios/WebKitPageScript.swift", "packages/ardiacore/ios/WebKitStores.swift", "-o", pageExecutable]);
     const pageDirectory = join(scratch, "page-native");
     mkdirSync(pageDirectory, {recursive:true});
-    const pageResult = await run(pageExecutable, [pageDirectory]);
+    const pageResult = await run(pageExecutable, [pageDirectory], {env:{ARDIA_DATA_DIR:pageDirectory}});
     const executable = join(scratch, "native-check");
     await run("xcrun", ["clang++", "-std=c++20", "-fobjc-arc", "-fblocks", "-Wno-incomplete-implementation", "-framework", "AppKit", "-framework", "Security", "-lsqlite3",
       "packages/ardiacore/tests/webkit-data.test.mm", "packages/ardiacore/ios/ArdiaLaunchConfig.mm", ...["Store", "Network", "Favicons", "Services", "EngineBridge"].map((name) => `packages/ardiacore/ios/webkit/${name}.mm`), "-o", executable]);

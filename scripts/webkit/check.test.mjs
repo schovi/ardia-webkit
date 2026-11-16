@@ -114,3 +114,17 @@ test("page fixtures keep auth, popup, and hang cases local", async () => {
     await assert.rejects(fetch(fixture.refusedOrigin));
   } finally { await fixture.close(); }
 });
+
+test("settings fixtures provide local suggestions and resumable download bytes", async () => {
+  const fixture = await startFixture();
+  try {
+    assert.deepEqual(await (await fetch(fixture.origin+"/suggest?q=step")).json(),["step",["fixture suggestion"]]);
+    const controller = new AbortController();
+    const response = await fetch(fixture.origin+"/slow-download",{headers:{Range:"bytes=1024-"},signal:controller.signal});
+    assert.equal(response.status,206);
+    assert.equal(response.headers.get("content-range"),`bytes 1024-${8*1024*1024-1}/${8*1024*1024}`);
+    const chunk = await response.body.getReader().read();
+    assert.ok(chunk.value.length>0); assert.ok(chunk.value.every(byte=>byte===42));
+    controller.abort();
+  } finally { await fixture.close(); }
+});

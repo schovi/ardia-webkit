@@ -20,6 +20,8 @@
 @end
 @implementation ArdiaContentBlocker
 @end
+extern "C" NSArray *ArdiaWebKitLoadedProfiles(void) { return @[]; }
+extern "C" void ArdiaWebKitReleaseProfile(NSString *) {}
 extern "C" NSDictionary *ArdiaWebKitContentBlockerState(void) { return @{}; }
 
 @interface KeyTestWindow : NSWindow
@@ -44,6 +46,11 @@ int main() {
     [NSApplication.sharedApplication setActivationPolicy:NSApplicationActivationPolicyProhibited];
     NSWindow *window = [[KeyTestWindow alloc] initWithContentRect:NSMakeRect(0,0,800,600) styleMask:NSWindowStyleMaskTitled backing:NSBackingStoreBuffered defer:NO];
     window.releasedWhenClosed = NO;
+    assert([ArdiaHost.engineInfo[@"engine"] isEqual:@"WebKit"]);
+    assert([ArdiaHost.engineInfo[@"webkitVersion"] length] > 0);
+    assert([ArdiaHost isPrivateProfile:@"incognito:test@work"]);
+    assert([[ArdiaHost baseProfileOf:@"incognito:test@work"] isEqual:@"work"]);
+    assert([[ArdiaHost baseProfileOf:@"work"] isEqual:@"work"]);
     assert([ArdiaChromeWindowHost windowShouldClose:window]);
     __block NSWindow *asked;
     ArdiaChromeWindowHost.shouldCloseHandler = ^BOOL(NSWindow *sender) { asked = sender; return NO; };

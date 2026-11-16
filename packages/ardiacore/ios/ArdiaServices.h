@@ -2,6 +2,10 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+FOUNDATION_EXPORT NSDictionary *WebKitProfileSettings(NSString *profile, NSString *section);
+FOUNDATION_EXPORT void WebKitSetProfileSetting(NSString *profile, NSString *section, NSString *key, id _Nullable value);
+FOUNDATION_EXPORT BOOL WebKitDeleteProfileStore(NSString *profile);
+
 typedef void (^ArdiaCoreResult)(NSDictionary<NSString *, id> *result);
 typedef void (^ArdiaServiceReply)(id _Nullable value, NSString *_Nullable error);
 

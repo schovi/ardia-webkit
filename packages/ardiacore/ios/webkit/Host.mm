@@ -6,8 +6,12 @@
 #import <QuartzCore/QuartzCore.h>
 #import "../ArdiaFieldTiming.h"
 #import "Store.h"
+#import "../ArdiaServices.h"
 #import "Network.h"
 #import "Settings.h"
+
+extern "C" NSArray *ArdiaWebKitLoadedProfiles(void);
+extern "C" void ArdiaWebKitReleaseProfile(NSString *);
 
 static __weak NSWindow *backgroundKeyWindow;
 static const void *pageFullScreenKey = &pageFullScreenKey;
@@ -39,6 +43,18 @@ NSString *WebKitModalAlertText(NSWindow *window) {
 void ArdiaWebViewsSetFieldTiming(BOOL on) {}
 
 @implementation ArdiaHost (WebKitData)
++ (NSDictionary *)engineInfo {
+  NSString *version = [NSBundle bundleForClass:WKWebView.class].infoDictionary[@"CFBundleVersion"] ?: @"unknown";
+  return @{@"engine": @"WebKit", @"chromiumVersion": version, @"webkitVersion": version,
+    @"appVersion": NSBundle.mainBundle.infoDictionary[@"CFBundleShortVersionString"] ?: @"unknown",
+    @"pid": @(NSProcessInfo.processInfo.processIdentifier), @"dataDirectory": self.dataDirectory,
+    @"liveBrowsers": @0, @"popupWindows": @0, @"chromeWindows": @(self.chromeWindows.count)};
+}
++ (NSArray<NSString *> *)loadedProfiles { return ArdiaWebKitLoadedProfiles(); }
++ (void)releaseProfile:(NSString *)profile { ArdiaWebKitReleaseProfile(profile); }
++ (void)deleteProfileData:(NSString *)profile completion:(void (^)(NSArray<NSString *> *))completion {
+  completion(WebKitDeleteProfileStore(profile) ? @[] : @[@"SQLite store"]);
+}
 + (NSArray *)chromeWindows {
   NSMutableArray *windows = [NSMutableArray array];
   for (NSWindow *window in NSApp.windows) {
@@ -168,6 +184,12 @@ BOOL ArdiaPerformReservedKey(NSEvent *event) {
 @implementation ArdiaChromeWindowHost (Dev)
 + (NSString *)devAction:(NSString *)action window:(NSWindow *)window {
   if (!ArdiaLaunchConfig.shared.testInstance) return @"unsupported";
+  if ([action isEqual:@"about"]) {
+    for (NSMenuItem *item in NSApp.mainMenu.itemArray.firstObject.submenu.itemArray) {
+      if ([item.title hasPrefix:@"About "] && item.action) return [NSApp sendAction:item.action to:item.target from:nil] ? @"ok" : @"failed";
+    }
+    return @"missing About item";
+  }
   if ([action isEqual:@"state"]) {
     NSMutableArray *lights = [NSMutableArray array];
     for (NSInteger kind = NSWindowCloseButton; kind <= NSWindowZoomButton; kind++) {

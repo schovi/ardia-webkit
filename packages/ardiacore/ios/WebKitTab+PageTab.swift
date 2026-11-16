@@ -89,3 +89,14 @@ extension WebKitTab: PageTab {
 
   func discard(unload: Bool) -> String { Self.unsupported }
 }
+
+extension WebKitTab {
+  func loadVersionPage(_ target: URL, in view: WKWebView) -> Bool {
+    guard ["ardia", "chrome"].contains(target.scheme ?? ""), target.host == "version" else { return false }
+    let info = ArdiaHost.engineInfo
+    let version = info["webkitVersion"] as? String ?? "unknown"
+    let app = info["appVersion"] as? String ?? "unknown"
+    view.loadHTMLString("<title>Ardia WebKit Version</title><h1>Ardia WebKit</h1><p>App \(app)</p><p>WebKit \(version)</p>", baseURL: target)
+    return true
+  }
+}

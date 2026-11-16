@@ -51,4 +51,4 @@ The Settings tour also found malformed extension and bookmark responses during s
 | Startup before Settings | `ac_bookmarks_watch` | `{}` acknowledgement; no watch | 5 |
 | Startup before Settings | `ac_bookmarks_tree` | Empty `bar` and `other` folder roots, each with `id`, `k: "f"`, `t`, `a: 0`, `c: []` | 5 |
 
-`setEnabled`, `setList:enabled`, and `setAllowed:onHost` remain generated stand-ins. The placeholders above do not persist changes or implement their features. The tour checks all 14 available top-level panes, including advanced panes; it does not test sheets or setting actions.
+`setEnabled`, `setList:enabled`, and `setAllowed:onHost` now control WebKit in Step 4. The extension and bookmark placeholders above remain unchanged. The tour checks all 14 available top-level panes, including advanced panes; it does not test sheets or setting actions.

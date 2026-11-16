@@ -46,7 +46,7 @@ struct ChromiumPageEngine: PageEngine {
   }
 
   func clearSiteData(profile: String, origin: String, done: @escaping (Any?, String?) -> Void) {
-    ArdiaServices.clearSiteData(profile: profile, origin: origin, reply: done)
+    WebKitPageEngine().clearSiteData(profile: profile, origin: origin, done: done)
   }
 
   func prepareTransfer(_ key: String) { ArdiaWebView.prepareTransfer(key) }
@@ -58,7 +58,6 @@ struct ChromiumPageEngine: PageEngine {
   }
 
   func deleteProfileData(profile: String, done: @escaping ([String]) -> Void) {
-    if profile.isEmpty { return ProfileData.deleteDefault(done) }
     ArdiaHost.deleteProfileData(profile, completion: done)
   }
 }

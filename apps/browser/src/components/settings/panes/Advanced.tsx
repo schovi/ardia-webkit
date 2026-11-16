@@ -97,7 +97,7 @@ export function AdvancedPane() {
 
       <SectionHeader title="Web engine" />
       <Group>
-        <Row anchor="advanced.chromium" description={info ? "ArdiaCore" : undefined}>
+        <Row anchor="advanced.chromium" title="WebKit" description={info ? "System WebKit" : undefined}>
           <Text selectable tone="textSecondary">
             {info?.chromiumVersion ?? "…"}
           </Text>

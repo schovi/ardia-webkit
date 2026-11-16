@@ -33,6 +33,23 @@ export async function startFixture() {
       response.setHeader("Content-Type", "application/javascript");
       return response.end("document.documentElement.dataset.control = 'loaded';");
     }
+    if (url.pathname === "/slow-download") {
+      const total = 8 * 1024 * 1024;
+      const start = Number(/^bytes=(\d+)-/.exec(request.headers.range ?? "")?.[1] ?? 0);
+      response.writeHead(start ? 206 : 200, {"Content-Disposition": 'attachment; filename="slow.bin"', "Content-Type":"application/octet-stream", "Accept-Ranges":"bytes", "Content-Length":total-start, ...(start ? {"Content-Range":`bytes ${start}-${total-1}/${total}`} : {})});
+      let sent = start;
+      const timer = setInterval(() => {
+        const size = Math.min(32768, total-sent);
+        response.write(Buffer.alloc(size, 42)); sent += size;
+        if (sent === total) { clearInterval(timer); response.end(); }
+      }, 25);
+      response.on("close", () => clearInterval(timer));
+      return;
+    }
+    if (url.pathname === "/suggest") {
+      response.setHeader("Content-Type", "application/json");
+      return response.end(JSON.stringify([url.searchParams.get("q"),["fixture suggestion"]]));
+    }
     if (url.pathname === "/download") {
       response.setHeader("Content-Disposition", 'attachment; filename="smoke.txt"');
       response.setHeader("Content-Type", "application/octet-stream");

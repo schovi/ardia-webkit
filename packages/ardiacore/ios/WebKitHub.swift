@@ -14,6 +14,14 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
   private(set) lazy var externalApps = WebKitExternalApps(stores: stores)
   private var lastBrowserId: Int32 = -1000
 
+  private override init() {
+    super.init()
+    NotificationCenter.default.addObserver(forName: Notification.Name("WebKitProfileSettingsChanged"), object: nil, queue: .main) { [weak self] note in
+      guard let self, let profile = note.object as? String else { return }
+      for tab in self.transfers.liveTabs where tab.profile == profile { tab.applySitePreferences() }
+    }
+  }
+
   func nextBrowserId() -> Int32 {
     lastBrowserId -= 1
     return lastBrowserId
@@ -101,6 +109,14 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
     guard let webView = message.webView, let tab = transfers.owner(of: webView), let body = message.body as? [String: Any],
       let kind = body["kind"] as? String
     else { return }
+    if kind == "devPermission", LaunchConfig.shared.testInstance, let permission = body["data"] as? String {
+      tab.webView(webView, requestMediaCapturePermissionFor: message.frameInfo.securityOrigin, initiatedByFrame: message.frameInfo,
+        type: permission == "camera" ? .camera : .microphone) { decision in
+          tab.permissionTestReply?(decision == .grant)
+          tab.permissionTestReply = nil
+        }
+      return
+    }
     tab.pageMessage(kind, data: body["data"], frame: body["frame"] as? String ?? "", frameInfo: message.frameInfo)
   }
 
@@ -170,8 +186,8 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
     if let host = stores.takeResumeHost(of: profile) { Self.close(host) }
     let removeStore = {
       WebKitStoreRemovals.exists(identifier) { exists in
-        guard exists else { return completion(true) }
-        WebKitStoreRemovals.remove(identifier, tries: 12, done: completion)
+        guard exists else { return completion(WebKitDeleteProfileStore(profile)) }
+        WebKitStoreRemovals.remove(identifier, tries: 12) { removed in completion(removed && WebKitDeleteProfileStore(profile)) }
       }
     }
     guard let store = removed else { return removeStore() }
@@ -192,4 +208,14 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
       cookies.setCookie(cookie) { done(touched) }
     }
   }
+}
+
+@_cdecl("ArdiaWebKitLoadedProfiles")
+func webKitLoadedProfiles() -> NSArray { WebKitHub.shared.stores.loadedProfiles as NSArray }
+
+@_cdecl("ArdiaWebKitReleaseProfile")
+func webKitReleaseProfile(_ profile: NSString) {
+  let name = profile as String
+  if WebKitStores.isPrivate(name) { WebKitHub.shared.endPrivateSession(ArdiaHost.baseProfile(of: name)) }
+  else { WebKitHub.shared.stores.releaseProfile(name) }
 }

@@ -94,7 +94,8 @@ final class WebKitContentBlocker {
   }
 
   var state: [String: Any] {
-    [
+    start()
+    return [
       "ready": ready, "enabled": settings.enabled, "lists": lists.count, "key": listsKey, "loading": loadingKey ?? NSNull(),
       "rulesets": wantedRulesets(), "allowedHosts": settings.allowedHosts, "compileMs": lastCompileMs,
       "error": lastError ?? NSNull(), "version": bundled?.version ?? "",
@@ -119,6 +120,7 @@ final class WebKitContentBlocker {
 
   private func noteChange(_ info: [AnyHashable: Any]) {
     var next = settings
+    if next.lists == nil { next.lists = wantedRulesets() }
     if let enabled = info["enabled"] as? Bool { next.enabled = enabled }
     if let lists = info["lists"] as? [String] { next.lists = lists.map { $0.lowercased() }.sorted() }
     if let hosts = info["allowedHosts"] as? [String] { next.allowedHosts = hosts.map { $0.lowercased() }.sorted() }
@@ -134,6 +136,7 @@ final class WebKitContentBlocker {
     }
     guard next != settings else { return }
     settings = next
+    ArdiaContentBlocker.state { state in ArdiaEvents.emit("contentBlocker.changed", data: state["stats"] as? [String: Any] ?? [:]) }
     save()
     reselect()
     applyAll()

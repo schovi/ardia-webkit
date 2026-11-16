@@ -1,4 +1,5 @@
 #import "Store.h"
+#import "../ArdiaServices.h"
 #import "../ArdiaEvents.h"
 #import "../ArdiaHost.h"
 #import <CommonCrypto/CommonDigest.h>
@@ -9,6 +10,10 @@
 BOOL WebKitPrivateProfile(NSString *profile) { return [profile hasPrefix:@"incognito"]; }
 
 namespace {
+dispatch_queue_t StoreQueue() {
+  static dispatch_queue_t queue = dispatch_queue_create("ardia.webkit.store", DISPATCH_QUEUE_SERIAL);
+  return queue;
+}
 NSString *Text(id value) { return [value isKindOfClass:NSString.class] ? value : @""; }
 NSArray *List(id value) { return [value isKindOfClass:NSArray.class] ? value : @[]; }
 double Number(id value, double fallback = 0) {
@@ -71,6 +76,7 @@ NSString *FileName(NSString *profile) {
       "CREATE TABLE IF NOT EXISTS visits(url TEXT REFERENCES pages(url) ON DELETE CASCADE,at REAL,PRIMARY KEY(url,at));"
       "CREATE TABLE IF NOT EXISTS deletions(url_hash TEXT,since REAL,until REAL,PRIMARY KEY(url_hash,since));"
       "CREATE TABLE IF NOT EXISTS icons(url TEXT PRIMARY KEY,png TEXT NOT NULL);"
+      "CREATE TABLE IF NOT EXISTS settings(section TEXT,key TEXT,value TEXT NOT NULL,PRIMARY KEY(section,key));"
       "CREATE TABLE IF NOT EXISTS page_icons(page TEXT PRIMARY KEY,icon TEXT NOT NULL);");
   }
   return self;
@@ -82,6 +88,30 @@ NSString *FileName(NSString *profile) {
   dispatch_async(dispatch_get_main_queue(), ^{ [ArdiaEvents emit:@"history.changed" data:event]; });
 }
 - (NSDictionary *)call:(NSString *)name args:(NSDictionary *)args {
+  if ([name isEqualToString:@"settings.read"]) {
+    Statement read(_database, "SELECT key,value FROM settings WHERE section=? ORDER BY key");
+    read.text(1, Text(args[@"section"]));
+    NSMutableDictionary *values = [NSMutableDictionary dictionary];
+    while (read.step()) {
+      id value = [NSJSONSerialization JSONObjectWithData:[read.string(1) dataUsingEncoding:NSUTF8StringEncoding] options:NSJSONReadingFragmentsAllowed error:nil];
+      if (value) values[read.string(0)] = value;
+    }
+    return values;
+  }
+  if ([name isEqualToString:@"settings.write"]) {
+    NSString *section = Text(args[@"section"]), *key = Text(args[@"key"]);
+    id value = args[@"value"];
+    if (!value || value == NSNull.null) {
+      Statement remove(_database, "DELETE FROM settings WHERE section=? AND key=?");
+      remove.text(1, section); remove.text(2, key); remove.step();
+    } else {
+      NSData *data = [NSJSONSerialization dataWithJSONObject:value options:NSJSONWritingFragmentsAllowed error:nil];
+      if (!data) return @{@"error": @"invalid setting"};
+      Statement save(_database, "INSERT OR REPLACE INTO settings VALUES(?,?,?)");
+      save.text(1, section); save.text(2, key); save.text(3, [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]); save.step();
+    }
+    return @{};
+  }
   if ([name isEqualToString:@"ac_history_watch"]) return @{};
   if ([name isEqualToString:@"ac_history_query"]) {
     int maxUrls = (int)MAX(0, MIN(50000, Number(args[@"maxUrls"], 5000)));
@@ -209,8 +239,7 @@ void WebKitStoreCall(NSString *name, NSString *profile, NSDictionary *args, void
     if ([name isEqualToString:@"ac_favicons_get"]) return reply(@{@"pages": @{}, @"icons": @{}});
     return reply(@{});
   }
-  static dispatch_queue_t queue = dispatch_queue_create("ardia.webkit.store", DISPATCH_QUEUE_SERIAL);
-  dispatch_async(queue, ^{
+  dispatch_async(StoreQueue(), ^{
     @autoreleasepool {
       NSDictionary *result;
       try {
@@ -221,4 +250,44 @@ void WebKitStoreCall(NSString *name, NSString *profile, NSDictionary *args, void
       dispatch_async(dispatch_get_main_queue(), ^{ reply(result); });
     }
   });
+}
+
+static NSMutableDictionary *PrivateSettings(void) {
+  static NSMutableDictionary *values = [NSMutableDictionary dictionary];
+  return values;
+}
+NSDictionary *WebKitProfileSettings(NSString *profile, NSString *section) {
+  if (WebKitPrivateProfile(profile)) return [PrivateSettings()[[@"incognito@" stringByAppendingString:[ArdiaHost baseProfileOf:profile]]][section] copy] ?: @{};
+  try {
+    WebKitStore *store = [[WebKitStore alloc] initWithDirectory:[ArdiaHost.dataDirectory stringByAppendingPathComponent:@"Stores"] profile:profile];
+    return [store call:@"settings.read" args:@{@"section": section}];
+  } catch (const std::exception &error) { NSLog(@"[webkit] settings read failed: %s", error.what()); return @{}; }
+}
+void WebKitSetProfileSetting(NSString *profile, NSString *section, NSString *key, id value) {
+  NSString *notificationProfile = profile;
+  if (WebKitPrivateProfile(profile)) {
+    profile = [@"incognito@" stringByAppendingString:[ArdiaHost baseProfileOf:profile]];
+    if (!PrivateSettings()[profile]) PrivateSettings()[profile] = [NSMutableDictionary dictionary];
+    if (!PrivateSettings()[profile][section]) PrivateSettings()[profile][section] = [NSMutableDictionary dictionary];
+    if (value) PrivateSettings()[profile][section][key] = value;
+    else [PrivateSettings()[profile][section] removeObjectForKey:key];
+  } else {
+    try {
+      WebKitStore *store = [[WebKitStore alloc] initWithDirectory:[ArdiaHost.dataDirectory stringByAppendingPathComponent:@"Stores"] profile:profile];
+      [store call:@"settings.write" args:@{@"section": section, @"key": key, @"value": value ?: NSNull.null}];
+    } catch (const std::exception &error) { NSLog(@"[webkit] settings write failed: %s", error.what()); }
+  }
+  [NSNotificationCenter.defaultCenter postNotificationName:@"WebKitProfileSettingsChanged" object:notificationProfile userInfo:@{@"section": section, @"key": key}];
+}
+BOOL WebKitDeleteProfileStore(NSString *profile) {
+  if (WebKitPrivateProfile(profile)) { [PrivateSettings() removeObjectForKey:[@"incognito@" stringByAppendingString:[ArdiaHost baseProfileOf:profile]]]; return YES; }
+  __block BOOL removed = YES;
+  dispatch_sync(StoreQueue(), ^{
+    NSString *path = [[ArdiaHost.dataDirectory stringByAppendingPathComponent:@"Stores"] stringByAppendingPathComponent:FileName(profile)];
+    for (NSString *suffix in @[@"", @"-wal", @"-shm"]) {
+      NSString *file = [path stringByAppendingString:suffix];
+      if ([NSFileManager.defaultManager fileExistsAtPath:file] && ![NSFileManager.defaultManager removeItemAtPath:file error:nil]) removed = NO;
+    }
+  });
+  return removed;
 }
