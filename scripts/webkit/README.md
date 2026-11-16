@@ -145,3 +145,17 @@ The rows drive the existing command, dialog button, store actions, and mounted c
 Background `bookmarks.exportHtml` bypasses the save panel and writes `<data>/WebKit/Bookmarks.html`. The row parses the file with the real import module. Foreground export still uses the save panel.
 
 Chromium suppresses `bookmarks.changed` during `apply`. The watcher row checks this and the initial model-load event with `{profile}`. UI edits already update the JS store before saving.
+
+## Import
+
+Step 6 adds six fixture rows: `import-arc-spaces`, `import-arc-tabs`, `import-bookmarks`, `import-history`, `import-cookies`, and `import-honest`.
+
+The wizard's `acImport` handle works in Release only for an isolated test instance. Hermes evaluation needs promise chains; it cannot parse async functions.
+
+`import-arc-local` and `import-chrome-local` are local-only. Each copies importer inputs into scratch before discovery or import. Copies exclude cookies, passwords, autofill, caches, sessions, and blobs. Neither row unlocks a source browser. A missing folder or a folder without an importer-readable profile reports `SKIPPED (no source profile)`, never PASS. This status does not affect the exit code.
+
+The Arc rows compare space and tab counts, relative pin and folder order, folder membership, and theme presence. Split folders become split views. The Chrome rows compare bookmark nesting/order and history titles, last visits, and aggregate visit counts, then relaunch. History stores the aggregate count and the last known visit, without inventing individual visit times.
+
+`import-cookies` uses the existing invented Chrome fixture and `ARDIA_TEST=importSecret`. It proves private-profile rejection and an imported session cookie on the next server request. It never requests another browser's Keychain item. Passwords and autofill stay hidden, with zero imported counts and explicit result text.
+
+Arc snapshots stay in `apps/browser/build-webkit/step-6-evidence/`. Real source data and detailed errors stay in scratch. The rows delete source copies even if stopping the test instance fails. Copy-removal output includes a directory listing. A usable real source also checks its strings against the patch with `grep -F -f`, without printing matching data.

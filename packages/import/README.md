@@ -127,3 +127,11 @@ sqlite3 CLI: it checkpoints the WAL the tests depend on.
    it in `state/import/apply.ts`. A secret kind goes through `ImportWriter` and a new engine call instead.
 6. Run `test`, `typecheck` and `pnpm -w typecheck`. For anything that reaches the engine, also run `scripts/e2e.mjs`
    against a fresh Debug build.
+
+## WebKit fork
+
+`scripts/webkit/check` exercises the Release import window without CDP. It enables `acImport` for isolated test instances. The older `scripts/e2e.mjs` expects Chromium CDP and working autofill, so it does not verify this fork.
+
+`history.import` writes aggregate counts and the latest visit into SQLite. `ImportWriter` still sends `ac_cookies_import`, now connected to the existing WebKit cookie writer. The secret bridge wipes its input and rejects autofill. Passwords and autofill are hidden from selection and explicitly reported as not imported. Step 7 owns passwords.
+
+Only the local-only WebKit rows may read real profiles, after copying supported input files to scratch. They never request cookies, passwords, autofill, Safari access, or another app's Keychain item.

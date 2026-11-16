@@ -35,7 +35,7 @@ export type ImportFlow = {
   step: ImportStep;
 };
 
-export const IMPORT_KINDS: ImportKind[] = ["bookmarks", "history", "passwords", "cookies", "autofill", "tabs", "spaces", "pinnedTabs", "favorites"];
+export const IMPORT_KINDS: ImportKind[] = ["bookmarks", "history", "cookies", "tabs", "spaces", "pinnedTabs", "favorites"];
 export const ENCRYPTED_KINDS: ImportKind[] = ["passwords", "cookies", "autofill"];
 export const APP_TAB_KINDS: ImportKind[] = ["tabs", "pinnedTabs"];
 export const NO_EXTENSIONS: FoundExtensions = { profileId: "", list: [], opened: false };
@@ -106,7 +106,7 @@ export function chooseSource(b: BrowserSource) {
     source: b,
     sourceProfiles: (defaults.length ? defaults : b.profiles.slice(0, 1)).map((p) => p.id),
     spaces: spaceProfiles.flatMap((p) => p.spaces ?? []).map((sp) => sp.id),
-    kinds: new Set(available),
+    kinds: new Set(available.filter((kind) => IMPORT_KINDS.includes(kind))),
     ...(b.family === "safari" ? { fullDiskAccess: importModule().safariHasFullDiskAccess() } : {}),
     step: { name: "choose", error: null },
   });
@@ -116,12 +116,12 @@ const toggled = (list: string[], id: string, on: boolean) => (on ? [...list, id]
 
 export function toggleImportKind(kind: ImportKind, on: boolean) {
   const kinds = new Set(importNow().kinds);
-  if (on) kinds.add(kind);
+  if (on && IMPORT_KINDS.includes(kind)) kinds.add(kind);
   else kinds.delete(kind);
   patchImport({ kinds });
 }
 
-export const setImportKinds = (kinds: Iterable<ImportKind>) => patchImport({ kinds: new Set(kinds) });
+export const setImportKinds = (kinds: Iterable<ImportKind>) => patchImport({ kinds: new Set([...kinds].filter((kind) => IMPORT_KINDS.includes(kind))) });
 export const toggleSourceProfile = (id: string, on: boolean) => patchImport({ sourceProfiles: toggled(importNow().sourceProfiles, id, on) });
 export const toggleImportSpace = (id: string, on: boolean) => patchImport({ spaces: toggled(importNow().spaces, id, on) });
 export const setImportTarget = (target: string) => patchImport({ target });

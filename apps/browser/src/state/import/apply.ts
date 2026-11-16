@@ -1,9 +1,7 @@
-import { savePassword } from "../../platform/passwords";
 import { orWarn } from "../../lib/fallback";
 import {
   importModule,
   type BookmarkNode as ImportedNode,
-  type Credential,
   type DiaTabsProfile,
   type ImportedFavicon,
   type ImportedTab,
@@ -30,7 +28,6 @@ import { live } from "../live/store";
 import type { LiveSourceId } from "../live/types";
 import { isWebPageUrl, withoutFragment } from "../../lib/url";
 import { focusedWindowOf } from "../windows/ui";
-import { originOfLogin } from "../site/savedPasswords";
 import { IDLE } from "../tabs/pageSession";
 
 export type { BrowserProfile, BrowserSource, DiaTabsResult, ImportedExtension, ImportKind, ImportResult, SpaceSummary } from "../../platform/importModule";
@@ -101,16 +98,6 @@ export function importBookmarks(profileId: string, root: ImportedNode | undefine
 
 export function importHistory(profileId: string, entries: { url: string; title: string; visits: number; lastVisit: number }[]): number {
   return useBrowser.getState().importHistory(profileId, entries);
-}
-
-async function importPasswords(profileId: string, credentials: Credential[]): Promise<number> {
-  let saved = 0;
-  for (const c of credentials) {
-    const origin = originOfLogin(c.realm?.startsWith("http") ? c.realm : c.url);
-    if (!origin || !c.password) continue;
-    if (await savePassword(engineProfile(useBrowser.getState(), profileId), origin, c.username, c.password).catch(orWarn(false))) saved++;
-  }
-  return saved;
 }
 
 export async function importNative(
@@ -279,7 +266,7 @@ export async function applyResult(
   Object.assign(counts, await importNative(profileId, result.vaultToken, native, onFailed));
   if (result.tabs.length && !result.spaces.length) counts.tabs += importTabs(profileId, result.tabs, "Imported");
   if (result.favorites.length) counts.tabs += importTabs(profileId, result.favorites.map((t) => ({ ...t, pinned: true })), null, "tiles");
-  if (result.credentials.length) counts.passwords += await importPasswords(profileId, result.credentials);
+  if (result.credentials.length) onFailed?.("passwords");
   return counts;
 }
 
@@ -290,7 +277,7 @@ export async function applySafari(profileId: string, data: SafariExport, cookies
   counts.history = importHistory(profileId, history);
   Object.assign(counts, await importNative(profileId, data.vaultToken, cookies ? ["cookies", "autofill"] : ["autofill"], onFailed));
   if (data.tabs.length) counts.tabs += importTabs(profileId, data.tabs, "Imported");
-  counts.passwords = await importPasswords(profileId, data.credentials);
+  if (data.credentials.length) onFailed?.("passwords");
   return counts;
 }
 

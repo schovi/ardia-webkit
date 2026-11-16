@@ -37,3 +37,16 @@ extension WebKitHub {
     group.notify(queue: .main) { completion(made.count) }
   }
 }
+
+@_cdecl("ArdiaWebKitImportCookies")
+func ArdiaWebKitImportCookies(_ values: NSDictionary, _ profile: NSString, _ completion: @escaping @convention(block) (NSDictionary) -> Void) {
+  DispatchQueue.main.async {
+    guard let cookies = values["cookies"] as? [[String: Any]], !WebKitStores.isPrivate(profile as String) else {
+      return completion(["error": "not imported: invalid cookies or private profile"])
+    }
+    let hub = WebKitHub.shared
+    hub.importCookies(cookies, profile: profile as String, storeKey: profile as String) { count in
+      completion(["imported": count, "rejected": cookies.count - count, "existing": 0])
+    }
+  }
+}

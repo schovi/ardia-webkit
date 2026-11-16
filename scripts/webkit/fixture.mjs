@@ -6,6 +6,7 @@ export const titleOf = (path) => `Cobalt Violet ${path.replace(/^\//, "")}`;
 
 export async function startFixture() {
   const hits = [];
+  const cookies = [];
   const refused = createServer();
   await new Promise((resolve, reject) => { refused.once("error", reject); refused.listen(0, "127.0.0.1", resolve); });
   const refusedOrigin = `http://127.0.0.1:${refused.address().port}`;
@@ -13,6 +14,7 @@ export async function startFixture() {
   const server = createServer((request, response) => {
     const url = new URL(request.url, "http://localhost");
     hits.push(url.pathname);
+    cookies.push(request.headers.cookie ?? "");
     response.setHeader("Cache-Control", "no-store");
     if (url.pathname.startsWith("/auth")) {
       if (request.headers.authorization !== "Basic " + Buffer.from("fixture:correct").toString("base64")) {
@@ -63,6 +65,7 @@ export async function startFixture() {
   return {
     origin: `http://127.0.0.1:${server.address().port}`,
     hits,
+    cookies,
     refusedOrigin,
     async close() { server.closeAllConnections(); await new Promise((resolve) => server.close(resolve)); },
   };

@@ -1,7 +1,9 @@
+import { perfProbeEnabled } from "../../state/app/perfProbe";
+
 const areas: Record<string, Record<string, unknown>> = {};
 
 export function devRegister(area: string, key: string | null, handle: unknown): () => void {
-  if (!__DEV__) return () => {};
+  if (!__DEV__ && !(area === "acImport" && perfProbeEnabled)) return () => {};
   const g = globalThis as Record<string, unknown>;
   if (key === null) {
     g[area] = handle;

@@ -21,7 +21,7 @@ export function ChooseBody({ flow }: { flow: ImportFlow }) {
     : KINDS.filter((k) => source.profiles.some((p) => p.available.includes(k.kind)) && (!HIDDEN_KINDS.includes(k.kind) || (appTabs && k.kind === "pinnedTabs")));
   return (
     <>
-      <Title title="Import from Another Browser" subtitle="Import once and stay in your flow. Your tabs, passwords, bookmarks and history come with you, and you stay signed in." />
+      <Title title="Import from Another Browser" subtitle="Import once and stay in your flow. Your tabs, bookmarks and history come with you. Passwords, addresses and cards are not imported." />
       {browsers.length === 0 ? (
         <Note text="No other browsers with data to import were found on this Mac." />
       ) : (

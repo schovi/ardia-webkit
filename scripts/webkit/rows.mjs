@@ -1,3 +1,4 @@
+import { importRows } from "./import-rows.mjs";
 import { bookmarkRows } from "./bookmark-rows.mjs";
 import { settingsRows } from "./settings-rows.mjs";
 import assert from "node:assert/strict";
@@ -48,6 +49,7 @@ async function terminate(browser) {
 }
 
 export const rows = {
+  ...importRows,
   ...bookmarkRows,
   ...settingsRows,
   ...pageRows,
@@ -347,5 +349,5 @@ export const rows = {
     }
   },
 };
-export const browserRows = new Set(Object.keys(rows).filter((name) => !["chromium", "sign", "native", "js"].includes(name)));
+export const browserRows = new Set(Object.keys(rows).filter((name) => !name.startsWith("import-") && !["chromium", "sign", "native", "js"].includes(name)));
 export { ALLOWED_TEST };

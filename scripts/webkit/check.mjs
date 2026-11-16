@@ -1,3 +1,4 @@
+import { localImportRows } from "./import-rows.mjs";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -12,6 +13,7 @@ const help = `Usage: scripts/webkit/check [--no-build] [--only <row>]
 Default: rebuild Release and its zip, then run every row.
 --no-build: reuse the last Release build.
 --only <row>: run one independent row.
+Local-only rows: ${[...localImportRows].join(", ")} (SKIPPED (no source profile) when absent).
 Rows: ${names.join(", ")}
 Offline network rows are skipped (offline) and return a nonzero exit.
 Only allowed JS failure: ${ALLOWED_TEST}
@@ -53,7 +55,7 @@ async function check(options) {
       try {
         if (browserRows.has(name)) current = new Browser(join(scratch, name), fixture, launches, name === "no-upstream" ? { onboarding: true, observe: true } : {foreground:foregroundRows.has(name)});
         if (current) await current.launch();
-        const evidence = await rows[name]({ browser: current, fixture, scratch });
+        const evidence = await rows[name]({ browser: current, fixture, scratch, launches });
         result = { row: name, status: "PASS", evidence };
       } catch (error) {
         try { current?.assertNoModalAlert(); } catch (alert) { error = alert; }

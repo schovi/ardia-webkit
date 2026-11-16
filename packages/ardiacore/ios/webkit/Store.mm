@@ -133,6 +133,27 @@ NSString *FileName(NSString *profile) {
     }
     return @{@"entries": entries};
   }
+  if ([name isEqualToString:@"ac_history_import"]) {
+    Statement page(_database, "INSERT INTO pages VALUES(?,?,?,?) ON CONFLICT(url) DO NOTHING");
+    Statement visit(_database, "INSERT OR IGNORE INTO visits VALUES(?,?)");
+    int imported = 0;
+    Execute(_database, "BEGIN IMMEDIATE");
+    try {
+      for (id value in List(args[@"rows"])) {
+        if (![value isKindOfClass:NSDictionary.class]) continue;
+        NSString *url = Text(value[@"u"]);
+        double last = Number(value[@"l"]);
+        if (!WebURL(url) || last <= 0) continue;
+        page.text(1, url); page.text(2, Text(value[@"t"])); page.number(3, MAX(1, Number(value[@"n"], 1))); page.number(4, last);
+        page.step(); page.reset();
+        if (!sqlite3_changes(_database)) continue;
+        visit.text(1, url); visit.number(2, last); visit.step(); visit.reset();
+        imported++;
+      }
+      Execute(_database, "COMMIT");
+    } catch (...) { Execute(_database, "ROLLBACK"); throw; }
+    return @{@"imported": @(imported)};
+  }
   if ([name isEqualToString:@"ac_history_add"]) {
     Statement deleted(_database, "SELECT 1 FROM deletions WHERE url_hash IN ('',?) AND since<=? AND until>=? LIMIT 1");
     Statement existing(_database, "SELECT 1 FROM visits WHERE url=? AND at BETWEEN ? AND ? LIMIT 1");
@@ -238,6 +259,7 @@ void WebKitStoreCall(NSString *name, NSString *profile, NSDictionary *args, void
   if (WebKitPrivateProfile(profile) && [name hasPrefix:@"ac_bookmarks_"]) profile = [ArdiaHost baseProfileOf:profile];
   if (WebKitPrivateProfile(profile)) {
     if ([name isEqualToString:@"ac_history_query"]) return reply(@{@"entries": @[]});
+    if ([name isEqualToString:@"ac_history_import"]) return reply(@{@"imported": @0});
     if ([name isEqualToString:@"ac_history_add"]) return reply(@{@"added": @0});
     if ([name isEqualToString:@"ac_favicons_set"]) return reply(@{@"stored": @NO});
     if ([name isEqualToString:@"ac_favicons_get"]) return reply(@{@"pages": @{}, @"icons": @{}});

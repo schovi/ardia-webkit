@@ -232,10 +232,6 @@
 @end
 
 @implementation ArdiaEngineBridge
-+ (void)callWithSecret:(NSString *)name
-               profile:(NSString *)profile
-                  args:(NSMutableData *)args
-            completion:(void (^)(NSString *json))completion { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (completion) completion({}); }
 + (void)callForSecretReply:(NSString *)name
                    profile:(NSString *)profile
                    timeout:(NSTimeInterval)timeout

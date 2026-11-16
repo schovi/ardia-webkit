@@ -79,7 +79,7 @@ test("foreground session lock and nonfailure result states stay distinct", async
   assert.equal(screenIsLocked([{IOConsoleUsers:[{CGSSessionScreenIsLocked:false}]}]),false);
   assert.equal(screenIsLocked([{}]),false);
   assert.equal(screenIsLocked([{CGSSessionScreenIsLocked:1}]),true);
-  for(const status of ["PASS","NEEDS PERSON","SKIPPED (screen locked)","SKIPPED (no key window)"]) assert.equal(resultFails(status),false);
+  for(const status of ["PASS","NEEDS PERSON","SKIPPED (screen locked)","SKIPPED (no key window)","SKIPPED (no source profile)"]) assert.equal(resultFails(status),false);
   for(const status of ["FAIL","skipped (offline)","unknown"]) assert.equal(resultFails(status),true);
 });
 
@@ -127,4 +127,21 @@ test("settings fixtures provide local suggestions and resumable download bytes",
     assert.ok(chunk.value.length>0); assert.ok(chunk.value.every(byte=>byte===42));
     controller.abort();
   } finally { await fixture.close(); }
+});
+
+test("profile copies include importer inputs and omit secrets and caches", async () => {
+  const {copyImportProfile} = await import("./import-rows.mjs");
+  const {mkdtempSync,mkdirSync,writeFileSync,readdirSync,rmSync} = await import("node:fs");
+  const {tmpdir} = await import("node:os");
+  const {join} = await import("node:path");
+  const scratch = mkdtempSync(join(tmpdir(),"webkit-import-copy-"));
+  try {
+    const source=join(scratch,"source"), destination=join(scratch,"copy");
+    mkdirSync(join(source,"Default/Cache"),{recursive:true});
+    for(const name of ["History","History-wal","Bookmarks","Preferences","Login Data","Cookies","Web Data"]) writeFileSync(join(source,"Default",name),"fixture");
+    writeFileSync(join(source,"Local State"),"fixture");
+    copyImportProfile(source,destination);
+    assert.deepEqual(readdirSync(destination),["Default","Local State"]);
+    assert.deepEqual(readdirSync(join(destination,"Default")),["Bookmarks","History","History-wal","Preferences"]);
+  } finally {rmSync(scratch,{recursive:true,force:true});}
 });

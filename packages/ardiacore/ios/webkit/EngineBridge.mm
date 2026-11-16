@@ -4,7 +4,22 @@
 #import "../ArdiaServices.h"
 #import "Network.h"
 
+extern "C" void ArdiaWebKitImportCookies(NSDictionary *, NSString *, void (^)(NSDictionary *));
+
 @implementation ArdiaEngineBridge (WebKitDownloads)
++ (void)callWithSecret:(NSString *)name profile:(NSString *)profile args:(NSMutableData *)args completion:(void (^)(NSString *))completion {
+  NSUInteger length = args.length;
+  if (length && ((const char *)args.bytes)[length - 1] == 0) length--;
+  NSDictionary *values = [NSJSONSerialization JSONObjectWithData:[args subdataWithRange:NSMakeRange(0, length)] options:0 error:nil];
+  [args resetBytesInRange:NSMakeRange(0, args.length)];
+  void (^answer)(NSDictionary *) = ^(NSDictionary *result) {
+    completion([[NSString alloc] initWithData:[NSJSONSerialization dataWithJSONObject:result options:0 error:nil] encoding:NSUTF8StringEncoding]);
+  };
+  if (![values isKindOfClass:NSDictionary.class]) return answer(@{@"error": @"invalid import arguments"});
+  if (![name isEqual:@"ac_cookies_import"]) return answer(@{@"error": @"not imported: unsupported kind"});
+  if (WebKitPrivateProfile(profile)) return answer(@{@"error": @"not imported: private profile"});
+  ArdiaWebKitImportCookies(values, profile, answer);
+}
 + (void)call:(NSString *)name profile:(NSString *)profile args:(NSString *)args completion:(void (^)(NSString *))completion {
   NSDictionary *values = args ? [NSJSONSerialization JSONObjectWithData:[args dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil] : @{};
   if (![values isKindOfClass:NSDictionary.class]) { completion(@"{\"error\":\"arguments must be an object\"}"); return; }
@@ -31,7 +46,7 @@
   };
   if (defaults[name]) return answer(defaults[name]);
   if ([name hasPrefix:@"ac_bookmarks_"]) return WebKitStoreCall(name, profile, values, answer);
-  if ([@[@"ac_history_query", @"ac_history_add", @"ac_history_delete_urls", @"ac_history_watch", @"ac_favicons_get", @"ac_favicons_set"] containsObject:name]) {
+  if ([@[@"ac_history_query", @"ac_history_add", @"ac_history_import", @"ac_history_delete_urls", @"ac_history_watch", @"ac_favicons_get", @"ac_favicons_set"] containsObject:name]) {
     return WebKitStoreCall(name, profile, values, answer);
   }
   if ([name isEqualToString:@"ac_search_suggest"] || [name isEqualToString:@"ac_search_suggest_stop"]) return WebKitSearchCall(name, profile, values, answer);

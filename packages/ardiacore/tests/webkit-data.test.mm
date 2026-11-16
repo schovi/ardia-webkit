@@ -13,6 +13,7 @@
 #include <unistd.h>
 
 void CheckWebKitBookmarks(WebKitStore *store);
+extern "C" void ArdiaWebKitImportCookies(NSDictionary *, NSString *, void (^reply)(NSDictionary *)) { reply(@{@"imported": @0}); }
 static NSString *directory;
 static void Check(bool value, const char *name) {
   if (!value) { std::fprintf(stderr, "FAIL %s\n", name); std::exit(1); }
@@ -131,6 +132,26 @@ int main(int argc, const char **argv) {
     [ArdiaServices setZoom:9 profile:@"settings-test" host:@"one.example"];
     Check(WebKitProfileSettings(@"settings-test", @"zoom").count == 0, "invalid zoom ignored");
     Check(WebKitDeleteProfileStore(@"settings-test"), "profile SQLite removed");
+    WebKitStore *importStore = [[WebKitStore alloc] initWithDirectory:stores profile:@"import-test"];
+    NSDictionary *importRows = @{@"rows": @[@42, @{@"u": @"file:///invalid", @"l": @1234}, @{@"u": @"https://import.example/", @"t": @"Imported", @"n": @17, @"l": @1234}]};
+    Check([[importStore call:@"ac_history_import" args:importRows][@"imported"] intValue] == 1, "import accepts valid rows only");
+    Check([[importStore call:@"ac_history_import" args:importRows][@"imported"] intValue] == 0, "reimport preserves existing pages");
+    importStore = nil;
+    importStore = [[WebKitStore alloc] initWithDirectory:stores profile:@"import-test"];
+    Check([[importStore call:@"ac_history_query" args:@{}][@"entries"][0][@"n"] intValue] == 17, "import preserves aggregate visits after reopening");
+    for (NSString *json in @[@"[]", @"null", @"bad"]) {
+      __block BOOL refused = NO;
+      NSMutableData *secret = [[json dataUsingEncoding:NSUTF8StringEncoding] mutableCopy];
+      [ArdiaEngineBridge callWithSecret:@"ac_cookies_import" profile:@"" args:secret completion:^(NSString *reply) { refused = [reply containsString:@"invalid import arguments"]; }];
+      Check(refused && ((const char *)secret.bytes)[0] == 0, "malformed secret imports fail and wipe input");
+    }
+
+    for (NSString *name in @[@"ac_autofill_import", @"invalid"]) {
+      NSMutableData *secret = [[@"{}" dataUsingEncoding:NSUTF8StringEncoding] mutableCopy];
+      __block BOOL refused = NO;
+      [ArdiaEngineBridge callWithSecret:name profile:@"" args:secret completion:^(NSString *json) { refused = [json containsString:@"not imported"]; }];
+      Check(refused && ((const char *)secret.bytes)[0] == 0, "unsupported secret imports fail and wipe input");
+    }
     NSDictionary *pages = @{@"pages": @[@{@"u": @"https://one.example/", @"t": @"First", @"v": @[@1000, @3000]}, @{@"u": @"https://two.example/", @"t": @"Second", @"v": @[@2000]}], @"toleranceMs": @0};
     Check([[store call:@"ac_history_add" args:pages][@"added"] intValue] == 3, "visits added");
     Check([[store call:@"ac_history_add" args:pages][@"added"] intValue] == 0, "duplicate visits ignored");
