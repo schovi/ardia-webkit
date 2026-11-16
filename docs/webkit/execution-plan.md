@@ -334,7 +334,7 @@ Each of these is its own decision after the steps above.
 | 2. Window and keyboard | done, 4 rows unproven | `44dde8ea7`, `518a0917b`, `912129da5` | Traffic lights, close policy, profile switch, context menu, visibility: pass. Typing in a page, Esc focus, ⌘[ with page focus and element full screen are implemented but **unproven**: an app started from the agent session cannot become active on this Mac, so those rows report `SKIPPED (no key window)`. Trackpad swipe is `NEEDS PERSON`. A person must run [needs-person.md](needs-person.md). [Evidence](step-2-results.md). |
 | 3. Page features | Must implemented; Should deferred | `f2fef5c3d` | 32 PASS, 4 no-key-window skips, 2 NEEDS PERSON. Inspector UI and visual checks remain manual. [Evidence and remaining stubs](step-3-results.md). |
 | 4. Site and browser settings | done | `cba6075df` | 8 rows pass: zoom per site, site permissions, clear site data, blocker controls, download settings, profiles, search engine choice, About. Two limits accepted: the Site Controls sound toggle keeps upstream's own JS site-mute path for WebKit pages (it works and persists, outside SQLite), and a stored location decision does not answer a page's geolocation request (WebKit has no public delegate for it). [Evidence](step-4-results.md). |
-| 5. Bookmarks | not started | | |
+| 5. Bookmarks | done | `5540bf2b5` | 6 bookmark rows and native op tests pass; SQLite persistence, Netscape export, sync keys/order and private base-profile reads verified. Full check: 46 PASS, 4 no-key-window skips, 2 NEEDS PERSON. Physical drag and export picker remain manual. [Evidence](step-5-results.md). |
 | 6. Import | not started | | |
 | 7. Passwords | not started | | |
 | 8. Extensions | not started | | |

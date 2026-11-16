@@ -34,3 +34,11 @@ Automated checks log Inspector and HTTP auth requests in background mode. They d
 | Allow or block location in Settings, then request location from a trusted test page | The stored setting remains visible. Automated checks prove storage only and never request macOS location consent. |
 
 Camera and microphone checks invoke the real WKUIDelegate decision callback using a fixture frame. They never start capture or request macOS consent. Hardware capture remains unchecked.
+
+## Step 5 bookmarks
+
+| Action | Expected result |
+|---|---|
+| Drag a bookmark within the bar, into a folder, and within that folder | The drop changes order or parent. Relaunch retains the result. Automated checks use the same `moveBookmark` action. |
+| Add a page with Cmd+D, edit its name and folder, then press Done | The dialog accepts physical input and the bar shows the saved bookmark. Automated checks drive the command and rendered Done button. |
+| Export bookmarks in a foreground scratch instance | The save panel writes Netscape HTML at the chosen scratch path. Cancel writes nothing. Background checks bypass the panel. |

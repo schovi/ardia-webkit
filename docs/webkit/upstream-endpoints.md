@@ -48,7 +48,7 @@ The Settings tour also found malformed extension and bookmark responses during s
 | General prefetch and Extensions | `ArdiaServices.listExtensions` / `extensions.list` | `{extensions: []}` | 8 |
 | Startup and Extensions | `ac_extensions_load_health` | `{dropped: 0, enabled: 0, disabled: {}}` | 8 |
 | Startup and Extensions | `ac_extensions_watch_actions` | `{}` acknowledgement; no watch | 8 |
-| Startup before Settings | `ac_bookmarks_watch` | `{}` acknowledgement; no watch | 5 |
-| Startup before Settings | `ac_bookmarks_tree` | Empty `bar` and `other` folder roots, each with `id`, `k: "f"`, `t`, `a: 0`, `c: []` | 5 |
+| Startup before Settings | `ac_bookmarks_watch` | Step 5: registers a profile watcher; emits `bookmarks.changed` with `{profile}` when the model first loads. `apply` suppresses notifications, matching Chromium. | Implemented |
+| Startup before Settings | `ac_bookmarks_tree` | Step 5: profile SQLite tree, stable lowercase UUIDs, ordered `bar` and `other` roots, children and sync keys. Private calls use the base profile. | Implemented |
 
-`setEnabled`, `setList:enabled`, and `setAllowed:onHost` now control WebKit in Step 4. The extension and bookmark placeholders above remain unchanged. The tour checks all 14 available top-level panes, including advanced panes; it does not test sheets or setting actions.
+`setEnabled`, `setList:enabled`, and `setAllowed:onHost` now control WebKit in Step 4. Only the extension placeholders above remain. Step 5 also implements bookmark operations and Netscape HTML export. The tour checks all 14 available top-level panes, including advanced panes; it does not test sheets or setting actions.
