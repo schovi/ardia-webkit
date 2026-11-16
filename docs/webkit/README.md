@@ -4,7 +4,7 @@ A fork of [Ardia](https://github.com/mantrakp04/ardia) that replaces its Chromiu
 
 Branch `webkit` holds the work. It is based on upstream stable tag `v0.2.46`.
 
-Status: **plan accepted, spike not started.**
+Status: **the app boots with no Chromium and loads pages in WebKit tabs** (Step 2 done, 2026-11-16). Browser data services are still stand-ins.
 
 | File | What it holds |
 |---|---|
@@ -14,4 +14,4 @@ Status: **plan accepted, spike not started.**
 
 ## Next action
 
-Step 2 of the plan: boot the app with no Chromium linked.
+Step 3 of the plan: a Release build that runs without Metro, then a smoke pass of daily basics.

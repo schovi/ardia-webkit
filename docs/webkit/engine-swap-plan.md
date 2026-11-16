@@ -98,6 +98,16 @@ Done when: a hidden instance shows the sidebar and loads a page, and `otool -L` 
 Output: the gap table, one row per missing method and call: `webkit`, `stand-in` or `missing`.
 Effort: complexity medium, blast radius one pod, risk medium. This step answers the main unknown: how much of the shell and UI needs real Chromium objects.
 
+**Step 2 result (2026-11-16): done.** Commits `529b517e4` and `db5a01dc6`.
+
+- Debug build succeeds with no Chromium framework linked or embedded. App size is 65 MB
+- A hidden instance loads `https://example.com` in a WebKit tab. The sidebar, toolbar and page render
+- `packages/shell` needed **no changes**. The plain-window fallback in `WindowManager.swift` works as is
+- The cut is 3 new files: `packages/ardiacore/ios/webkit/Standins.mm` (generated, 1,557 lines), `webkit/Host.mm` (45 lines, hand-written) and the generator script. The podspec lists 7 engine-free `.mm` files to keep
+- Boot and one page load hit 36 stand-ins. Most are window chrome, tab strip and page-input settings
+- JS edits: `engines.ts` returns `webkit` for every tab, and the `pageEngine` default is `webkit`
+- Open: 24 of 2,271 JS tests fail. Most assert that Chromium is chosen. Not triaged yet
+
 **Step 2b. Spike: passwords and extensions in `WKWebView`.** Runs next to Step 2, in the same throwaway app.
 
 1. Log in to a site. Check if iCloud Keychain or 1Password autofill appears
