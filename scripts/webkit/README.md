@@ -8,8 +8,10 @@ For a checkout without installed packages or Pods:
 
 ```sh
 mise exec node@24 pnpm@11.1.3 -- pnpm install
-mise exec node@24 pnpm@11.1.3 -- scripts/agent/locked pod -- env -u GEM_HOME -u GEM_PATH -u RUBYOPT LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 /opt/homebrew/bin/pod install --project-directory=apps/browser/macos
+(cd apps/browser/macos && mise exec node@24 pnpm@11.1.3 -- ../../../scripts/agent/locked pod -- env -u GEM_HOME -u GEM_PATH -u RUBYOPT LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 /opt/homebrew/bin/pod install)
 ```
+
+Run `pod install` from inside `apps/browser/macos`, as above: with `--project-directory` it fails at `use_native_modules!`. Run it again after you add or remove a native source file.
 
 ```sh
 scripts/webkit/build
