@@ -82,3 +82,20 @@ test("foreground session lock and nonfailure result states stay distinct", async
   for(const status of ["PASS","NEEDS PERSON","SKIPPED (screen locked)"]) assert.equal(resultFails(status),false);
   for(const status of ["FAIL","skipped (offline)","unknown"]) assert.equal(resultFails(status),true);
 });
+
+test("cleanup reports modal text even after the app has exited", async () => {
+  const {Browser} = await import("./support.mjs");
+  const {mkdtempSync,writeFileSync,existsSync,rmSync} = await import("node:fs");
+  const {tmpdir} = await import("node:os");
+  const {join} = await import("node:path");
+  const data=mkdtempSync(join(tmpdir(),"webkit-modal-check-"));
+  try {
+    const browser=new Browser(data,null,[]);
+    browser.app={alive:false};
+    browser.foregroundLock=join(data,"lock");browser.ownsForegroundLock=true;
+    writeFileSync(browser.foregroundLock,"");
+    writeFileSync(join(data,"modal-alert.json"),"Test modal message");
+    await assert.rejects(browser.stop(),/app-modal alert: Test modal message/);
+    assert.equal(existsSync(browser.foregroundLock),false);
+  } finally {rmSync(data,{recursive:true,force:true});}
+});

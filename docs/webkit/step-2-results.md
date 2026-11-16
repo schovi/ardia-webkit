@@ -76,7 +76,7 @@ Control source, plist, and results remain in `apps/browser/build-webkit/step-2-e
 
 `NEEDS PERSON` applies only to the trackpad row. `SKIPPED (screen locked)` applies only to a locked foreground launch. Neither status counts as PASS or changes the exit code. FAIL and offline results still produce a nonzero exit. The command prints `docs/webkit/needs-person.md` for NEEDS PERSON or SKIPPED results.
 
-Foreground launches keep scratch data/downloads, file keychain, and the harness probe. A lock file permits one foreground instance at a time. App-modal alerts get recorded, dismissed, and followed by quit; the row reports failure with their text. Unit checks cover locked/unlocked input, result classification, page-hit boundaries, modal text, and the background activation guard.
+Foreground launches keep scratch data/downloads, file keychain, and the harness probe. A lock file permits one foreground instance at a time. App-modal alerts get recorded, dismissed, and followed by quit; the row reports failure with their text. Eight harness self-checks passed, including modal failure after process exit. Native checks cover page-hit boundaries, modal text, and the background activation guard.
 
 No check used `CGEventPost`, `osascript`, System Events, Accessibility APIs, or `screencapture`. Inputs and captures stay inside the app.
 

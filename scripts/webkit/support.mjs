@@ -136,6 +136,7 @@ export class Browser {
       assert.ok(!isAlive(this.app.pid),"app survived cleanup");
     } finally {
       if(this.ownsForegroundLock) { rmSync(this.foregroundLock,{force:true}); this.ownsForegroundLock=false; }
+      this.assertNoModalAlert();
     }
   }
   async restart() { await this.stop(); return this.launch(); }
