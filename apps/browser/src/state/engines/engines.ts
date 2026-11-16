@@ -25,9 +25,9 @@ export function siteOf(url: string | undefined | null): string | null {
 }
 
 export const canSwitchEngine = (url: string | undefined | null) => !!url && isWebPageUrl(url);
-export const chromiumOnly = (url: string | undefined | null) => !!url && /^(ardia|chrome|chrome-extension|chrome-untrusted|devtools|view-source):/i.test(url);
+export const chromiumOnly = (_url: string | undefined | null) => false;
 
-export const defaultEngine = (s: Pick<BrowserState, "settings">): PageEngine => (s.settings.pageEngine === "webkit" ? "webkit" : "chromium");
+export const defaultEngine = (s: Pick<BrowserState, "settings">): PageEngine => "webkit";
 
 export function ruleFor(s: Pick<BrowserState, "settings">, url: string | undefined | null): PageEngine | undefined {
   const site = siteOf(url);
@@ -88,15 +88,11 @@ function engineOf(s: EngineState, t: Tab, depth: number): PageEngine {
 }
 
 export function tabEngine(s: EngineState, tabId: string): PageEngine {
-  const t = s.tabs[tabId];
-  return t ? engineOf(s, t, 0) : defaultEngine(s);
+  return "webkit";
 }
 
 export function typedNavigationEngine(s: EngineState, tab: Tab, url: string): PageEngine {
-  if (chromiumOnly(url)) return "chromium";
-  const chosen = chosenEngine(s, url);
-  if (chosen) return chosen;
-  return tab.url || navigationOf(tab) ? tabEngine(s, tab.id) : defaultEngine(s);
+  return "webkit";
 }
 
 export function engineMark(s: EngineState, tabId: string): PageEngine | null {
