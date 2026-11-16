@@ -330,7 +330,7 @@ Each of these is its own decision after the steps above.
 |---|---|---|---|
 | 0. Checks in the repo | complete | `5722bc3cc` | 20 rows pass; verified without old scratch folders; intentional failure detected. |
 | 1. Nothing talks to upstream | done | `45bedc4d5`, `0b349a25c` | Release rebuilt; 22 rows pass, including 90-second request observation and 14 Settings panes. Reader defaults documented; setters stay stand-ins. |
-| 2. Window and keyboard | not started | | |
+| 2. Window and keyboard | blocked | `44dde8ea7` | Native contracts and 10 rows added; 27 pass, 5 fail on hidden input or foreground verification. Release rebuilt; [evidence](step-2-results.md). |
 | 3. Page features | not started | | |
 | 4. Site and browser settings | not started | | |
 | 5. Bookmarks | not started | | |
