@@ -72,3 +72,13 @@ test("settings tour rejects logged JS exceptions, including caught exceptions", 
     assert.throws(() => assertNoJavaScriptException(line), /JS exception/);
   }
 });
+
+test("foreground session lock and nonfailure result states stay distinct", async () => {
+  const {screenIsLocked,resultFails} = await import("./report.mjs");
+  assert.equal(screenIsLocked([{IOConsoleUsers:[{CGSSessionScreenIsLocked:true}]}]),true);
+  assert.equal(screenIsLocked([{IOConsoleUsers:[{CGSSessionScreenIsLocked:false}]}]),false);
+  assert.equal(screenIsLocked([{}]),false);
+  assert.equal(screenIsLocked([{CGSSessionScreenIsLocked:1}]),true);
+  for(const status of ["PASS","NEEDS PERSON","SKIPPED (screen locked)"]) assert.equal(resultFails(status),false);
+  for(const status of ["FAIL","skipped (offline)","unknown"]) assert.equal(resultFails(status),true);
+});

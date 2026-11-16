@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
 import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { RowOutcome } from "./report.mjs";
 import { BUILD, sleep } from "./support.mjs";
+
+export const foregroundRows = new Set(["type-page", "type-omnibox", "keys-page-focus", "full-screen"]);
 
 const evidence = join(BUILD, "step-2-evidence");
 async function native(browser, action) {
-  return browser.evaluate(`return ac.engine.call("windows.list").then(w=>ac.engine.call("windows.dev",{window:w.find(w=>w.hasRoot).window,action:${JSON.stringify(action)}}));`);
+  return browser.evaluate(`return ac.engine.call("windows.list").then(w=>ac.engine.call("windows.dev",{window:${browser.inputWindow ?? "w.find(w=>w.hasRoot).window"},action:${JSON.stringify(action)}}));`);
 }
+const pageState = (browser,id) => browser.evaluate(`return ac.engine.call("webKit.devPageState",{tabId:${JSON.stringify(id)}});`);
 const state = async browser => JSON.parse(await native(browser, "state"));
 const keyCodes = Object.fromEntries(Object.entries({a:0,s:1,d:2,f:3,h:4,g:5,z:6,x:7,c:8,v:9,b:11,q:12,w:13,e:14,r:15,y:16,t:17,"1":18,"2":19,"3":20,"4":21,"6":22,"5":23,"=":24,"9":25,"7":26,"-":27,"8":28,"0":29,"]":30,o:31,u:32,"[":33,i:34,p:35,l:37,j:38,"'":39,k:40,";":41,":":41,"\\":42,",":43,"/":44,n:45,m:46,".":47," ":49}));
 async function key(browser, text, code = keyCodes[text.toLowerCase()] ?? 0, modifiers = 0) {
@@ -40,6 +44,9 @@ export const windowRows = {
   "type-page": async ({browser}) => {
     const id = await inputs(browser);
     await click(browser, await point(browser,id,"#first"));
+    const focused = await pageState(browser,id);
+    assert.equal(focused.focused,true,JSON.stringify(focused));
+    assert.equal(await browser.page(id,"document.activeElement.id"),"first");
     for (const letter of "hello") await key(browser,letter);
     assert.equal(await browser.page(id,'document.querySelector("#first").value'), "hello", `native key dispatch did not type into WebKit; responder=${(await state(browser)).responder}; needs a person`);
     await key(browser,"a",0,1048576); await key(browser,"c",8,1048576);
@@ -58,12 +65,13 @@ export const windowRows = {
     await key(browser,"\r",36);
     await browser.loaded(id,"Cobalt Violet key-url");
     await key(browser,"l",37,1048576); await key(browser,"\u001b",53);
-    assert.match((await state(browser)).responder,/WK/);
+    await browser.until(`return ac.engine.call("webKit.devPageState",{tabId:${JSON.stringify(id)}}).then(s=>s.focused);`,2000);
     return "synthetic Cmd+L; native URL typing and Return loaded fixture; Esc restored WK responder; system focus needs a person";
   },
   "keys-page-focus": async ({browser}) => {
     const id = await inputs(browser);
     await browser.evaluate(`return ac.webviews.get(${JSON.stringify(id)}).focus();`);
+    assert.equal((await pageState(browser,id)).focused,true,JSON.stringify(await pageState(browser,id)));
     await key(browser,"t",17,1048576);
     await browser.until('return Object.keys(ac.store.getState().tabs).length===2;');
     await key(browser,"w",13,1048576);
@@ -112,13 +120,29 @@ export const windowRows = {
     return "native performClose -> shouldCloseHandler -> JS closeRequest; store and native windows=0; app alive";
   },
   "full-screen": async ({browser}) => {
-    await browser.open();
+    const id = await browser.open();
     await native(browser,"fullscreen");
     await browser.until(`return ac.store.getState().windows[${JSON.stringify(browser.window)}].fullScreen;`);
     await snapshot(browser,"fullscreen.png");
     await native(browser,"fullscreen");
     await browser.until(`return !ac.store.getState().windows[${JSON.stringify(browser.window)}].fullScreen;`);
-    throw new Error("window full screen enter/exit notifications and snapshot proven in hidden simulation; WebKit disables element full screen in background mode; native element transition and chrome hiding need a person");
+    await browser.execute(id,"document.body.innerHTML=\"<button id=\\\"enter\\\">Full screen</button><div id=\\\"stage\\\" style=\\\"background:#182b72;color:white;width:100%;height:100%;display:flex;align-items:center;justify-content:center;font:48px sans-serif\\\">WebKit element full screen</div>\";document.querySelector(\"#enter\").onclick=()=>document.querySelector(\"#stage\").requestFullscreen();");
+    await browser.until(`return ac.webviews.get(${JSON.stringify(id)}).evaluate('post("result",JSON.stringify(!!document.querySelector("#enter")));');`);
+    await click(browser,await point(browser,id,"#enter"));
+    await browser.until(`return ac.webviews.get(${JSON.stringify(id)}).evaluate('post("result",JSON.stringify(document.fullscreenElement?.id==="stage"));');`);
+    const full = await browser.until(`return ac.engine.call("webKit.devPageState",{tabId:${JSON.stringify(id)}}).then(s=>s.fullScreen===2?s:null);`);
+    await browser.until(`return ac.pageState.getState().pages[${JSON.stringify(id)}]?.fullscreen;`);
+    await browser.until('return globalThis.acPerf.findFibers("DockedLayout").some(f=>f.memoizedProps.fullscreen===true);');
+    const picture = await browser.evaluate(`return ac.webviews.get(${JSON.stringify(id)}).capturePicture(1);`);
+    assert.ok(picture?.data,"element full-screen snapshot failed");
+    mkdirSync(evidence,{recursive:true});
+    writeFileSync(join(evidence,"element-fullscreen.jpg"),Buffer.from(picture.data,"base64"));
+    browser.inputWindow=full.window;
+    try { await key(browser,"\u001b",53); } finally { delete browser.inputWindow; }
+    await browser.until(`return ac.webviews.get(${JSON.stringify(id)}).evaluate('post("result",JSON.stringify(!document.fullscreenElement));');`);
+    await browser.until(`return !ac.pageState.getState().pages[${JSON.stringify(id)}]?.fullscreen;`);
+    await browser.until('return globalThis.acPerf.findFibers("DockedLayout").some(f=>f.memoizedProps.fullscreen===false);');
+    return "real window full screen entered/exited; native click entered DOM element full screen; WebKit state=2 and chrome hidden; Esc restored element/chrome; element-fullscreen.jpg retained";
   },
   "user-sees": async ({browser}) => {
     await browser.open();
@@ -141,7 +165,7 @@ export const windowRows = {
   swipe: async ({browser}) => {
     await browser.open();
     assert.equal((await state(browser)).pages[0].gestures,true);
-    throw new Error("allowsBackForwardNavigationGestures=true; two-finger trackpad gesture needs a person; synthetic input cannot prove macOS gesture recognition");
+    throw new RowOutcome("NEEDS PERSON", "allowsBackForwardNavigationGestures=true; two-finger trackpad gesture needs a person; synthetic input cannot prove macOS gesture recognition");
   },
   "context-menu": async ({browser}) => {
     const id = await inputs(browser);

@@ -2,6 +2,12 @@ import AppKit
 import WebKit
 
 extension WebKitTab {
+  func focusPage() {
+    guard let view = webView else { return }
+    view.focusRequests += 1
+    window?.makeFirstResponder(view)
+  }
+
   func observeFullScreen(_ view: WKWebView) -> NSKeyValueObservation {
     view.observe(\.fullscreenState) { [weak self] view, _ in
       let fullScreen = view.fullscreenState != .notInFullscreen

@@ -17,6 +17,25 @@ static BOOL (^shouldClose)(NSWindow *);
 static BOOL (^refusesUnhandledKey)(NSWindow *, NSEvent *);
 static void (^quitCancelled)(void);
 
+WKWebView *WebKitPageAt(NSView *hit, NSView *root) {
+  for (NSView *view = hit; view && view != root; view = view.superview)
+    if ([view isKindOfClass:WKWebView.class]) return (WKWebView *)view;
+  return nil;
+}
+
+NSString *WebKitModalAlertText(NSWindow *window) {
+  NSMutableArray<NSString *> *text = [NSMutableArray array];
+  NSMutableArray<NSView *> *pending = [NSMutableArray array];
+  if (window.contentView) [pending addObject:window.contentView];
+  while (pending.count) {
+    NSView *view = pending.lastObject;
+    [pending removeLastObject];
+    [pending addObjectsFromArray:view.subviews];
+    if ([view isKindOfClass:NSTextField.class] && ((NSTextField *)view).stringValue.length) [text addObject:((NSTextField *)view).stringValue];
+  }
+  return [text componentsJoinedByString:@" | "];
+}
+
 void ArdiaWebViewsSetFieldTiming(BOOL on) {}
 
 @implementation ArdiaHost (WebKitData)
@@ -47,6 +66,15 @@ void ArdiaWebViewsSetFieldTiming(BOOL on) {}
 + (int)runWithArgc:(int)argc argv:(char **)argv delegate:(id<NSApplicationDelegate> (^)(void))makeDelegate {
   @autoreleasepool {
     WebKitObserveRequests();
+    class_addMethod(NSClassFromString(@"RCTTouchHandler"), NSSelectorFromString(@"gestureRecognizer:shouldAttemptToRecognizeWithEvent:"), imp_implementationWithBlock(^BOOL(id owner, NSGestureRecognizer *recognizer, NSEvent *event) {
+      if (event.type != NSEventTypeLeftMouseDown) return YES;
+      NSView *frame = event.window.contentView.superview;
+      WKWebView *page = WebKitPageAt([frame hitTest:[frame convertPoint:event.locationInWindow fromView:nil]], recognizer.view);
+      if (!page) return YES;
+      SEL pressed = NSSelectorFromString(@"ardiaPagePressed");
+      if ([page respondsToSelector:pressed]) [page performSelector:pressed];
+      return NO;
+    }), "B@:@@");
     NSApplication *application = NSApplication.sharedApplication;
     if (ArdiaLaunchConfig.shared.background) {
       [application setActivationPolicy:NSApplicationActivationPolicyProhibited];
@@ -71,6 +99,20 @@ void ArdiaWebViewsSetFieldTiming(BOOL on) {}
     }
     id<NSApplicationDelegate> delegate = makeDelegate();
     application.delegate = delegate;
+    if (ArdiaLaunchConfig.shared.testInstance && !ArdiaLaunchConfig.shared.background) {
+      NSTimer *watch = [NSTimer timerWithTimeInterval:0.1 repeats:YES block:^(NSTimer *timer) {
+        NSWindow *modal = NSApp.modalWindow;
+        if (!modal) return;
+        NSString *text = WebKitModalAlertText(modal);
+        [text writeToFile:[ArdiaLaunchConfig.shared.dataDirectory stringByAppendingPathComponent:@"modal-alert.json"] atomically:YES encoding:NSUTF8StringEncoding error:nil];
+        [NSApp abortModal];
+        [modal orderOut:nil];
+        [timer invalidate];
+        [NSTimer scheduledTimerWithTimeInterval:0 repeats:NO block:^(NSTimer *quit) { [NSApp terminate:nil]; }];
+      }];
+      [NSRunLoop.mainRunLoop addTimer:watch forMode:NSRunLoopCommonModes];
+      [NSRunLoop.mainRunLoop addTimer:watch forMode:NSModalPanelRunLoopMode];
+    }
     [application run];
     return 0;
   }
@@ -147,6 +189,17 @@ BOOL ArdiaPerformReservedKey(NSEvent *event) {
     }
     NSDictionary *state = @{@"pages": pages, @"lights": lights, @"seen": @([self userSeesWindow:window]), @"responder": NSStringFromClass(window.firstResponder.class) ?: @"", @"visible": @(window.visible)};
     return [[NSString alloc] initWithData:[NSJSONSerialization dataWithJSONObject:state options:0 error:nil] encoding:NSUTF8StringEncoding];
+  }
+  if ([action isEqual:@"activate"]) {
+    if (ArdiaLaunchConfig.shared.background) return @"foreground only";
+    [NSTimer scheduledTimerWithTimeInterval:0 repeats:NO block:^(NSTimer *timer) {
+      [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+      [NSApp activate];
+      [window makeKeyAndOrderFront:nil];
+      NSDictionary *state = @{@"policy": @(NSApp.activationPolicy), @"active": @(NSApp.isActive), @"key": @(window.isKeyWindow), @"canBecomeKey": @(window.canBecomeKeyWindow)};
+      [[NSJSONSerialization dataWithJSONObject:state options:0 error:nil] writeToFile:[ArdiaLaunchConfig.shared.dataDirectory stringByAppendingPathComponent:@"activation.json"] atomically:YES];
+    }];
+    return @"ok";
   }
   if ([action isEqual:@"fullscreen"]) { [window toggleFullScreen:nil]; return @"ok"; }
   if ([action isEqual:@"close"]) { [window performClose:nil]; return @"ok"; }

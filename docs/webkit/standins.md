@@ -6,7 +6,7 @@ Rows: `type-page`, `type-omnibox`, `keys-page-focus`, `traffic-lights`, `close-w
 
 A hit is a logged occurrence over all launches in this run. Each method logs once per process, not once per call.
 
-232 stand-ins; 37 hit; 813 logged hits.
+232 stand-ins; 37 hit; 810 logged hits.
 
 ## ArdiaChromeWindowHost
 
@@ -135,7 +135,7 @@ A hit is a logged occurrence over all launches in this run. Each method logs onc
 |---|---|---:|
 | `+[ArdiaSwipe addTarget:]` | yes | 31 |
 | `+[ArdiaSwipe performHaptic:]` |  | 0 |
-| `+[ArdiaSwipe removeTarget:]` | yes | 9 |
+| `+[ArdiaSwipe removeTarget:]` | yes | 8 |
 | `+[ArdiaSwipe simulateInWindow:point:steps:ignoreSystemPreference:completion:]` |  | 0 |
 
 ## ArdiaTabStrip
@@ -163,7 +163,7 @@ A hit is a logged occurrence over all launches in this run. Each method logs onc
 | `+[ArdiaWebView devScrollZoom:browser:]` |  | 0 |
 | `+[ArdiaWebView devWindowNumberForBrowser:]` |  | 0 |
 | `+[ArdiaWebView discardOffered:]` |  | 0 |
-| `+[ArdiaWebView dropTabReveals:]` | yes | 7 |
+| `+[ArdiaWebView dropTabReveals:]` | yes | 6 |
 | `+[ArdiaWebView endOutgoingFocusFrom:]` |  | 0 |
 | `+[ArdiaWebView installScrollZoom]` |  | 0 |
 | `+[ArdiaWebView installSwitchPrewarm]` |  | 0 |
@@ -179,7 +179,7 @@ A hit is a logged occurrence over all launches in this run. Each method logs onc
 | `+[ArdiaWebView removeSharedImages]` |  | 0 |
 | `+[ArdiaWebView reportsCommits]` |  | 0 |
 | `+[ArdiaWebView revealOffered:over:]` |  | 0 |
-| `+[ArdiaWebView revealTab:]` | yes | 4 |
+| `+[ArdiaWebView revealTab:]` | yes | 3 |
 | `+[ArdiaWebView routeLinkTabs:]` |  | 0 |
 | `+[ArdiaWebView setAutoPictureInPictureEnabled:]` | yes | 31 |
 | `+[ArdiaWebView setCommandScrollZoomEnabled:]` | yes | 31 |

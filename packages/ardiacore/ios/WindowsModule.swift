@@ -9,6 +9,11 @@ public class WindowsModule: Module {
   }
 
   static let calls = CallTable(domain: "windows", handlers: [
+    "devQuit": { _, reply in
+      guard LaunchConfig.shared.testInstance else { return reply.ok(false) }
+      reply.ok(true)
+      Timer.scheduledTimer(withTimeInterval: 0, repeats: false) { _ in NSApp.terminate(nil) }
+    },
     "list": { _, reply in reply.ok(ArdiaHost.chromeWindows) },
     "dev": { args, reply in
       let action = try args.text("action")

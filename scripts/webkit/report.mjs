@@ -84,3 +84,17 @@ export function standinReport(sources, logs, rows) {
   }
   return out.join("\n");
 }
+
+export function screenIsLocked(value) {
+  if (!value || typeof value !== "object") return false;
+  if (value.CGSSessionScreenIsLocked) return true;
+  return Object.values(value).some(screenIsLocked);
+}
+
+export function resultFails(status) {
+  return !["PASS", "NEEDS PERSON", "SKIPPED (screen locked)"].includes(status);
+}
+
+export class RowOutcome extends Error {
+  constructor(status, message) { super(message); this.resultStatus = status; }
+}

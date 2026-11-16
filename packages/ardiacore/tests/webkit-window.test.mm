@@ -4,6 +4,7 @@
 #import "../ios/ArdiaLaunchConfig.h"
 #import "../ios/ArdiaServices.h"
 #import "../ios/ArdiaContentBlocker.h"
+#import <WebKit/WebKit.h>
 #include <cassert>
 #include <cstdio>
 
@@ -35,6 +36,9 @@ extern "C" NSDictionary *ArdiaWebKitContentBlockerState(void) { return @{}; }
 - (void)keyUp:(NSEvent *)event {}
 @end
 
+WKWebView *WebKitPageAt(NSView *hit, NSView *root);
+NSString *WebKitModalAlertText(NSWindow *window);
+
 int main() {
   @autoreleasepool {
     [NSApplication.sharedApplication setActivationPolicy:NSApplicationActivationPolicyProhibited];
@@ -51,6 +55,8 @@ int main() {
     assert([ArdiaChromeWindowHost windowFullScreenIsForPage:window]);
     [ArdiaChromeWindowHost setPageFullScreen:NO inWindow:window];
     assert(![ArdiaChromeWindowHost windowFullScreenIsForPage:window]);
+    assert([WebKitModalAlertText(nil) isEqual:@""]);
+    assert([[ArdiaChromeWindowHost devAction:@"activate" window:window] isEqual:@"foreground only"]);
     assert(![ArdiaChromeWindowHost userSeesWindow:nil]);
     assert(![ArdiaChromeWindowHost userSeesWindow:window]);
     NSValue *center = [NSValue valueWithPoint:NSMakePoint(40,30)];
@@ -77,6 +83,19 @@ int main() {
     assert(ArdiaPerformReservedKey(key));
     KeyTestView *input = [[KeyTestView alloc] initWithFrame:NSMakeRect(0,0,100,100)];
     window.contentView = input;
+    NSTextField *message = [NSTextField labelWithString:@"Test modal message"];
+    [input addSubview:message];
+    assert([WebKitModalAlertText(window) isEqual:@"Test modal message"]);
+    [message removeFromSuperview];
+    assert(!WebKitPageAt(input, nil));
+    WKWebViewConfiguration *configuration = [WKWebViewConfiguration new];
+    configuration.websiteDataStore = WKWebsiteDataStore.nonPersistentDataStore;
+    WKWebView *page = [[WKWebView alloc] initWithFrame:NSMakeRect(0,0,10,10) configuration:configuration];
+    NSView *child = [NSView new];
+    [page addSubview:child];
+    assert(WebKitPageAt(child, input) == page);
+    assert(!WebKitPageAt(child, page));
+    [page removeFromSuperview];
     assert([window makeFirstResponder:input]);
     [ArdiaChromeWindowHost devAction:@"key:e|14|0" window:window];
     assert(input.keys == 1);

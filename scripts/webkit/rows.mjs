@@ -36,7 +36,7 @@ async function terminate(browser) {
   const file = join(browser.data, "quit-evidence.json");
   await browser.evaluate('ac.shell.onAppEvent(e=>{if(e.type==="willQuit")ac.shell.writeDocument("quit-evidence.json",JSON.stringify(e));});return true;');
   const started = Date.now();
-  await run("osascript", ["-l", "JavaScript", "-e", `ObjC.import("AppKit");$.NSRunningApplication.runningApplicationWithProcessIdentifier(${browser.app.pid}).terminate`], { timeout: 3000 });
+  await browser.requestQuit();
   for (const end = started + 10000; Date.now() < end && isAlive(browser.app.pid); await sleep(50));
   assert.ok(!isAlive(browser.app.pid), "terminate handler did not end the app within 10 seconds");
   assert.ok(existsSync(file), "terminate handler did not emit willQuit");
@@ -317,7 +317,7 @@ export const rows = {
     const windowExecutable = join(scratch, "window-check");
     await run("xcrun", ["clang++", "-std=c++20", "-fobjc-arc", "-fblocks", "-Wno-incomplete-implementation", "-framework", "AppKit", "-framework", "WebKit", "-framework", "QuartzCore", "-framework", "Security", "-lsqlite3",
       "packages/ardiacore/tests/webkit-window.test.mm", "packages/ardiacore/ios/ArdiaLaunchConfig.mm", ...["Host", "Store", "Network", "Services"].map(name => `packages/ardiacore/ios/webkit/${name}.mm`), "-o", windowExecutable]);
-    const windowResult = await run(windowExecutable, [], {env: {ARDIA_DATA_DIR:scratch}});
+    const windowResult = await run(windowExecutable, [], {env: {ARDIA_DATA_DIR:scratch,ARDIA_BACKGROUND:"1"}});
     return (await run(executable, [scratch], { env: { ARDIA_DATA_DIR: scratch, ARDIA_TEST: "networkRequests" } })).text.trim()+"; "+windowResult.text.trim();
   },
   js: async ({ scratch }) => {

@@ -3,8 +3,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Browser, ROOT, run } from "./support.mjs";
 import { startFixture } from "./fixture.mjs";
+import { foregroundRows } from "./window-rows.mjs";
 import { ALLOWED_TEST, browserRows, rows } from "./rows.mjs";
-import { parseOptions, standinReport } from "./report.mjs";
+import { parseOptions, standinReport, resultFails } from "./report.mjs";
 
 const names = Object.keys(rows);
 const help = `Usage: scripts/webkit/check [--no-build] [--only <row>]
@@ -50,12 +51,13 @@ async function check(options) {
       let result;
       current = null;
       try {
-        if (browserRows.has(name)) current = new Browser(join(scratch, name), fixture, launches, name === "no-upstream" ? { onboarding: true, observe: true } : {});
+        if (browserRows.has(name)) current = new Browser(join(scratch, name), fixture, launches, name === "no-upstream" ? { onboarding: true, observe: true } : {foreground:foregroundRows.has(name)});
         if (current) await current.launch();
         const evidence = await rows[name]({ browser: current, fixture, scratch });
         result = { row: name, status: "PASS", evidence };
       } catch (error) {
-        result = { row: name, status: error.offline ? "skipped (offline)" : "FAIL", evidence: error.message };
+        try { current?.assertNoModalAlert(); } catch (alert) { error = alert; }
+        result = { row: name, status: error.resultStatus ?? (error.offline ? "skipped (offline)" : "FAIL"), evidence: error.message };
       } finally {
         try { await current?.stop(); }
         catch (error) { result = { row: name, status: "FAIL", evidence: `${result?.evidence ?? ""}; cleanup: ${error.message}` }; }
@@ -67,7 +69,7 @@ async function check(options) {
     const logs = launches.map((app) => existsSync(app.log) ? readFileSync(app.log, "utf8") : "");
     const report = standinReport(sources, logs, options.rows);
     writeFileSync(join(ROOT, "docs/webkit/standins.md"), report);
-    if (results.some((result) => result.status !== "PASS")) process.exitCode = 1;
+    if (results.some((result) => resultFails(result.status))) process.exitCode = 1;
   } finally {
     await fixture?.close();
     rmSync(scratch, { recursive: true, force: true });
@@ -75,6 +77,7 @@ async function check(options) {
     console.error(`scratch removed: ${scratch}`);
   }
   table(results);
+  if (results.some(r=>r.status==="NEEDS PERSON"||r.status.toUpperCase().startsWith("SKIPPED"))) console.log(`Manual checklist: ${join(ROOT,"docs/webkit/needs-person.md")}`);
 }
 
 try {

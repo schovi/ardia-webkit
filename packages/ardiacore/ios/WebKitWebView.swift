@@ -2,6 +2,8 @@ import AppKit
 import WebKit
 
 final class WebKitWebView: WKWebView {
+  var focusRequests = 0
+  var onPress: (() -> Void)?
   var onFocus: (() -> Void)?
   var mediaFrames: [String: WKFrameInfo] = [:]
   var playingFrames = Set<String>()
@@ -39,6 +41,8 @@ final class WebKitWebView: WKWebView {
     if kind == "camera" { setCameraCaptureState(.none, completionHandler: {}) }
     if kind == "microphone" { setMicrophoneCaptureState(.none, completionHandler: {}) }
   }
+
+  @objc func ardiaPagePressed() { onPress?() }
 
   override func becomeFirstResponder() -> Bool {
     let became = super.becomeFirstResponder()

@@ -18,7 +18,7 @@ scripts/webkit/check
 
 `build` runs Release through the Xcode lock, bundles JS, signs ad hoc, and replaces `apps/browser/build-webkit/Ardia-WebKit-Release.zip`. It prints the app path and SHA-256. Its log is `apps/browser/build-webkit/build-webkit.log`.
 
-`check` rebuilds by default. It prints one result table and exits zero only when every selected row passes. It removes its scratch folder, downloads, snapshots, logs, fixture server, and app instances, including after a failed row. The `no-upstream` row keeps copies of its evidence in `apps/browser/build-webkit/step-1-evidence/`.
+`check` rebuilds by default. It prints one result table and exits nonzero for FAIL or offline results. `NEEDS PERSON` and `SKIPPED (screen locked)` never count as passes and do not affect the exit code. It removes its scratch folder, downloads, snapshots, logs, fixture server, and app instances, including after a failed row. The `no-upstream` row keeps copies of its evidence in `apps/browser/build-webkit/step-1-evidence/`.
 
 ## Run one row
 
@@ -106,9 +106,15 @@ Snapshots render the app's layers without WindowServer. They work while the scre
 
 Step 2 adds `type-page`, `type-omnibox`, `keys-page-focus`, `traffic-lights`, `close-window`, `full-screen`, `user-sees`, `profile-switch`, `swipe`, and `context-menu`.
 
-These rows dispatch AppKit events inside a hidden app. They do not prove system keyboard routing or real trackpad gestures. A blocked assertion stays FAIL and makes the command exit nonzero. In particular, `swipe` checks WebKit's gesture setting but fails until a person proves the gesture. `full-screen` checks simulated window notifications and saves a snapshot, then fails because background mode disables element full screen.
+`type-page`, `type-omnibox`, `keys-page-focus`, and `full-screen` use foreground mode on this unattended Mac. Each launch first reads `ioreg -n Root -d1 -a`; a true `CGSSessionScreenIsLocked` reports `SKIPPED (screen locked)`. Missing or false means unlocked. A lock file enforces one foreground instance at a time. Other rows stay hidden.
 
-The Release `windows.dev` hook accepts `state`, `key:<characters>|<keyCode>|<modifierFlags>`, `mouse:<down|up|rightdown|rightup>,<x>,<y>`, `resize:<width>,<height>`, `close`, and `fullscreen`. Mouse coordinates start at the window's top left. These hooks require an isolated test instance. `state` returns first responder, page frames, gesture settings, traffic-light centers, and visibility. Keys go through shortcut routing only with Command or Control; plain keys go to the first responder.
+Foreground launches use `open -n` with normal activation and no `ARDIA_BACKGROUND`. After the harness starts, an AppKit timer activates the app and orders its window key. The row fails if AppKit does not grant a key window; it never substitutes fake foreground state. They keep scratch data, downloads, sync/shared folders, the file keychain, and the harness probe. Input stays inside the app through AppKit events and responder calls. Checks never use `CGEventPost`, `osascript`, System Events, Accessibility, or `screencapture`. Camera, microphone, location, screen recording, protected folders, and the real Keychain stay out of these rows.
+
+A native watchdog records app-modal alert text in `modal-alert.json`, dismisses the alert, and quits. The row fails with that text. Cleanup requests quit through the test-only `windows.devQuit` call, including hidden instances and the quit smoke row. Its run-loop timer avoids blocking the main dispatch queue while AppKit waits for the asynchronous save reply.
+
+`swipe` verifies `allowsBackForwardNavigationGestures` and reports `NEEDS PERSON`: synthetic input cannot prove real trackpad recognition. Assertion failures remain FAIL. When any row reports `NEEDS PERSON` or `SKIPPED`, the check prints the path to `docs/webkit/needs-person.md`.
+
+The Release `windows.dev` hook accepts `activate` (foreground only), `state`, `key:<characters>|<keyCode>|<modifierFlags>`, `mouse:<down|up|rightdown|rightup>,<x>,<y>`, `resize:<width>,<height>`, `close`, and `fullscreen`. Mouse coordinates start at the window's top left. These hooks require an isolated test instance. `state` returns first responder, page frames, gesture settings, traffic-light centers, and visibility. Keys go through shortcut routing only with Command or Control; plain keys go to the first responder. The test-only `webKit.devPageState` call reports actual page focus, focus-request count, active/key state, and WebKit full-screen state.
 
 The background app keeps an internal key-window reference without making a real window key. It never activates the app. Window full screen sends AppKit notifications and changes the frame without creating a Space. Foreground windows use AppKit's full-screen implementation. WebKit's `fullscreenState` updates the page's full-screen event and the host's page-full-screen flag.
 

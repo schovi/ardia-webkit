@@ -28,6 +28,11 @@ public class WebKitModule: Module {
   ].merging(LaunchConfig.shared.testInstance ? testInstanceCalls : [:]) { call, _ in call })
 
   private static let testInstanceCalls: [String: CallHandler] = [
+    "devPageState": { args, reply in
+      guard let tab = WebKitHub.shared.transfers.liveTab(try args.text("tabId")), let view = tab.webView else { return reply.ok() }
+      let responder = view.window?.firstResponder as? NSView
+      reply.ok(["focused": responder?.isDescendant(of: view) ?? false, "responder": view.window?.firstResponder.map { String(describing: type(of: $0)) } ?? "", "focusRequests": view.focusRequests, "fullScreen": view.fullscreenState.rawValue, "window": view.window?.windowNumber ?? 0, "active": NSApp.isActive, "key": view.window?.isKeyWindow ?? false, "background": LaunchConfig.shared.background])
+    },
     "devStoreExists": { args, reply in WebKitHub.shared.storeExists(args.profile) { reply.ok($0) } },
     "devHoldStore": { args, reply in
       WebKitHub.shared.stores.holdForTest(args.profile)

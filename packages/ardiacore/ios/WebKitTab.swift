@@ -94,6 +94,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     if let key = transferKey { WebKitHub.shared.transfers.forgetLive(self, key: key) }
     webView = nil
     view.onFocus = nil
+    view.onPress = nil
     WebKitHub.shared.transfers.unregister(view)
     view.navigationDelegate = nil
     view.uiDelegate = nil
@@ -118,6 +119,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     view.allowsMagnification = true
     view.isInspectable = WebKitHub.inspectable && !WebKitStores.isPrivate(profile)
     if let color = pageBackgroundColor { view.underPageBackgroundColor = color }
+    view.onPress = { [weak self] in self?.emit("pagePress") }
     view.onFocus = { [weak self] in self?.emit("focus") }
     view.frame = bounds
     view.autoresizingMask = [.width, .height]
@@ -160,6 +162,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     guard let view = webView else { return }
     webView = nil
     view.onFocus = nil
+    view.onPress = nil
     if let key = transferKey, WebKitHub.shared.transfers.isPrepared(key) {
       WebKitHub.shared.transfers.unregister(view)
       view.navigationDelegate = nil
@@ -240,11 +243,6 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
   }
 
   func stopLoading() { webView?.stopLoading() }
-
-  func focusPage() {
-    guard let view = webView else { return }
-    window?.makeFirstResponder(view)
-  }
 
   func setMuted(_ on: Bool) {
     muted = on

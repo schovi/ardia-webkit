@@ -1,25 +1,25 @@
-# Step 2: window and keyboard
+# Step 2: foreground follow-up
 
-State: blocked on hidden input and foreground verification. The unchanged baseline passed all 22 rows before edits.
+State: blocked. The session-lock check reports unlocked, but AppKit does not activate a key window through the permitted APIs.
 
-## A. Check results
+## A. Step 2 results
 
-`scripts/webkit/check` rebuilt Release and its zip. Exit code: 1. Results: 27 PASS, 5 FAIL. All 22 earlier rows still passed.
+The full `scripts/webkit/check` rebuilt Release and its zip. Exit code: 1. Results: 27 PASS, 4 FAIL, 1 NEEDS PERSON. All 22 baseline rows passed.
 
 | Row | Result | Evidence |
 |---|---|---|
-| type-page | FAIL | native key dispatch did not type into WebKit; responder=Ardia_WebKit.BrowserWindow; needs a person; '' !== 'hello';  |
-| type-omnibox | FAIL | The input did not match the regular expression /WK/. Input:; 'Ardia_WebKit.BrowserWindow';  |
-| keys-page-focus | FAIL | Timed out: const t=ac.store.getState().tabs["tab-mwj8tkigfdd9-2"];return t&&ac.webviews.has(t.id)&&t.title==="Cobalt Violet keyboard";; last=false |
+| type-page | FAIL | Timed out: return ac.engine.call("windows.list").then(w=>w.some(w=>w.key));; last=false; activation={"canBecomeKey":true,"active":false,"key":false,"policy":0} |
+| type-omnibox | FAIL | Timed out: return ac.engine.call("windows.list").then(w=>w.some(w=>w.key));; last=false; activation={"canBecomeKey":true,"active":false,"key":false,"policy":0} |
+| keys-page-focus | FAIL | Timed out: return ac.engine.call("windows.list").then(w=>w.some(w=>w.key));; last=false; activation={"canBecomeKey":true,"active":false,"key":false,"policy":0} |
 | traffic-lights | PASS | explicit close center=[40,30] honored before and after resize/sidebar toggle; lights=[[40,30],[63,30],[86,30]]; normal.png retained; visible layout needs a person |
 | close-window | PASS | native performClose -> shouldCloseHandler -> JS closeRequest; store and native windows=0; app alive |
-| full-screen | FAIL | window full screen enter/exit notifications and snapshot proven in hidden simulation; WebKit disables element full screen in background mode; native element transition and chrome hiding need a person |
+| full-screen | FAIL | Timed out: return ac.engine.call("windows.list").then(w=>w.some(w=>w.key));; last=false; activation={"canBecomeKey":true,"active":false,"key":false,"policy":0} |
 | user-sees | PASS | visible hidden-test window reports seen=true; automatic PiP now has a visible baseline; real occlusion needs a person |
 | profile-switch | PASS | same window switched profile; work initially isolated, then work cookie; personal cookie survived return |
-| swipe | FAIL | allowsBackForwardNavigationGestures=true; two-finger trackpad gesture needs a person; synthetic input cannot prove macOS gesture recognition |
+| swipe | NEEDS PERSON | allowsBackForwardNavigationGestures=true; two-finger trackpad gesture needs a person; synthetic input cannot prove macOS gesture recognition |
 | context-menu | PASS | synthetic right-click link menu=Open Link,Open Link in New Tab,Download Linked File,Copy Link,,Share…,,Play All Animations,; open tab and copy link proven; page menu=Look Up “Link”,Translate “Link”,,Search with Google,,Copy,Copy Link with Highlight,,Share…,,,Show Writing Tools,Summarize,,Speech,,Play All Animations,; real mouse needs a person |
 | settings-tour | PASS | 14 panes: general, profiles, sync, tabs, appearance, privacy, passwords, autofill, extensions, search, shortcuts, liveFolders, calendar, advanced; roots rendered; nonblank snapshots; no JS exceptions; /Users/schovi/work/ardia-webkit/apps/browser/build-webkit/settings-tour-evidence |
-| no-upstream | PASS | 90 seconds; onboarding completed; JS and native controls observed; requests=["http://127.0.0.1:62318/observe-js","http://127.0.0.1:62318/observe-native","http://127.0.0.1:62318/favicon.ico"]; snapshots=/Users/schovi/work/ardia-webkit/apps/browser/build-webkit/step-1-evidence |
+| no-upstream | PASS | 90 seconds; onboarding completed; JS and native controls observed; requests=["http://127.0.0.1:63296/observe-js","http://127.0.0.1:63296/observe-native","http://127.0.0.1:63296/favicon.ico"]; snapshots=/Users/schovi/work/ardia-webkit/apps/browser/build-webkit/step-1-evidence |
 | chromium | PASS | otool=0; bundle=0 |
 | sign | PASS | deep signature valid; ad hoc; entitlements=0 |
 | smoke-a | PASS | bundled JS; window snapshot valid; typed URL title=Cobalt Violet typed |
@@ -28,7 +28,7 @@ State: blocked on hidden input and foreground verification. The unchanged baseli
 | smoke-d | PASS | target=_blank and window.open each loaded a new tab; windows=1 |
 | smoke-e | PASS | finished; scratch/downloads/smoke.txt; 28 bytes; contents match |
 | smoke-f | PASS | native windows: 2 -> 1 -> 0; app and harness remain alive |
-| smoke-g | PASS | willQuit observed; exited in 162 ms (<10000 ms) |
+| smoke-g | PASS | willQuit observed; exited in 303 ms (<10000 ms) |
 | smoke-h | PASS | same data dir restored 2 windows and all 3 tab URLs |
 | smoke-i | PASS | personal cookie=personal; second profile initially empty, then cookie=work; first unchanged |
 | smoke-j | PASS | two mounted pages with correct titles; widths=576,576 |
@@ -40,81 +40,77 @@ State: blocked on hidden input and foreground verification. The unchanged baseli
 | search | PASS | weath -> 4 network suggestions (weather říčany); typed query loaded Google results |
 | native | PASS | PASS WebKit data: persistence, isolation, deduplication, deletion, limits, favicon, requests, settings shapes and pane snapshots; PASS WebKit window: close policy, root ownership, light coordinates, visibility defaults, quit callback, reserved key guard |
 | js | PASS | 2258/2259 JS tests; only allowed: a watch from someone not sharing turns sharing on for 14 days and tags every event; typecheck passed |
+Manual checklist: /Users/schovi/work/ardia-webkit/docs/webkit/needs-person.md
 
-The final source rebuild passed after moving the full-screen observer into the existing UI delegate file. Deep signature verification passed. The focused full-screen row on that binary repeated the same documented blocker, with exit code 1.
+## B. Findings and changes
 
-Release zip: `apps/browser/build-webkit/Ardia-WebKit-Release.zip`. SHA-256: `7a41b77abfe1ca5e406cd37ec47aa10960c01a215e16e714348c19f02d3c2589`.
+| Row | Finding | Change or remaining limit |
+|---|---|---|
+| `type-page` | `open -n` did not yield an active/key window. A minimal AppKit app reproduced this without Ardia or React Native | `scripts/webkit/support.mjs:53` checks the session and uses foreground launch. `packages/ardiacore/ios/webkit/Host.mm:193` requests activation from a run-loop timer. The real-key guard still fails |
+| `type-page` | The Chromium build excluded page clicks from React Native's touch recognizer; the WebKit build lacked that contract | `packages/ardiacore/ios/webkit/Host.mm:69` now excludes WebKit page presses and forwards `pagePress`. Native tests cover page-hit boundaries. Foreground typing remains unproven |
+| `type-omnibox` | WebKit's `focus()` already calls `PageTab.focusPage`, not the Chromium stand-in. A direct probe changed native focus from false to true and counted one request | `packages/ardiacore/ios/WebKitTab+UIDelegate.swift:5` retains the real `makeFirstResponder` path. `packages/ardiacore/ios/WebKitModule.swift:32` exposes test-only focus evidence. Esc with a real key window remains unproven |
+| `keys-page-focus` | Explicit back/forward commands navigated correctly after `live.canGoBack` became true. The inactive-window keyboard failure does not prove a navigation bug | The menu/reserved-key path remains the keyboard entry. No keyboard fix is claimed without a real key window |
+| `full-screen` | Background mode intentionally disables element full screen. The foreground row now uses a native click and tests DOM/WebKit state, chrome state, Escape, and an in-process element capture | `scripts/webkit/window-rows.mjs:122` contains the real foreground check. Activation fails before the row can enter full screen |
 
-## B. In-process snapshots
+The new in-app quit helper initially called `terminate:` from the main dispatch queue. A process sample showed AppKit waiting inside `_shouldTerminate`, which prevented the save reply on that queue. `packages/ardiacore/ios/WindowsModule.swift:15` now schedules quit on a run-loop timer. The quit smoke row passed without `osascript`; no cleanup needed a signal in the final run.
 
-- Normal window with explicitly requested traffic-light centers: `/Users/schovi/work/ardia-webkit/apps/browser/build-webkit/step-2-evidence/normal.png`.
-- Simulated window full screen: `/Users/schovi/work/ardia-webkit/apps/browser/build-webkit/step-2-evidence/fullscreen.png`.
-- Raw build/check output: `/Users/schovi/work/ardia-webkit/apps/browser/build-webkit/step-2-evidence/check-output.txt`.
+## Activation evidence
 
-The normal capture draws AppKit traffic buttons separately from the window's layers. Hidden windows show inactive buttons. The full-screen capture proves a frame change and notifications, not a real Space or element full screen.
+Ardia reported:
 
-## C. Native contracts
+```json
+{"canBecomeKey":true,"active":false,"key":false,"policy":0}
+```
 
-| Owner | Implemented |
-|---|---|
-| `ArdiaChromeWindowHost` | Traffic-light set/move and getters; corner radius; root/embedded-root lookup and removal; close; close-policy and refused-key callbacks; visibility; page-full-screen flag |
-| `ArdiaHost` | Store the quit-cancelled callback instead of calling it during registration |
-| `ArdiaPerformReservedKey` | Query the current menu for Command/Control shortcuts and honor the refused-key callback |
-| `BrowserWindow` | Lay out requested traffic-light centers, including trailing placement; route close through policy; simulate full screen only in background mode |
-| `WebKitWebView` / `WebKitTab` | Log and select real native context-menu actions; cancel hidden menu tracking; observe WebKit full-screen state and emit the existing page event |
+A separate AppKit-only application set regular activation policy and tried `activate()` and `activate(ignoringOtherApps: true)`. Both attempts reported:
 
-| Retained call | Reason |
-|---|---|
-| `ArdiaChromeWindowHost.showProfile`, `prepareProfiles` | React Native mounts profile-specific WebKit views. The same-window cookie row proves that path without Chromium window swapping |
-| Chromium window construction, embedding, swapping, launch pictures | The app constructs a plain `BrowserWindow` and sets its content controller directly |
-| `ArdiaWebView.focusPage` | Chromium-only host. `PageViewDefinition` calls the existing `WebKitTab.focusPage` for WebKit tabs |
-| `ArdiaSwipe` | WebKit already enables `allowsBackForwardNavigationGestures`. Chromium's custom gesture machinery stays unused |
-| `ArdiaHost.menuShortcutsChanged` | Intentional no-op: native key routing reads the current menu for each shortcut; no engine shortcut cache exists |
+```json
+{"active":false,"key":false,"policy":0}
+```
 
-`userSeesWindow` previously returned false. `WebKitTab+AutoPictureInPicture.swift` uses it to decide automatic Picture in Picture. Visible hidden-test windows now establish a seen baseline. Foreground windows use AppKit visibility, minimization, and occlusion. Window visibility notifications trigger reconsideration.
+The control tried both `open -n <app>` and `open -n -a <app>`. It used no Ardia or React Native code. The exact reason for denied activation remains unknown. No fake active/key state replaced this evidence.
 
-No stand-in result needed a shaped-default exception on these paths. The generator now discovers the single-line hand-written methods added here and excludes their stand-ins.
+Control source, plist, and results remain in `apps/browser/build-webkit/step-2-evidence/activation-control.*`. Full output is `apps/browser/build-webkit/step-2-evidence/check-output.txt`. Direct focus/history results are `handler-probes.txt` in that directory.
 
-## Needs a person at the screen
+## C. Check semantics
 
-1. Click page fields, type, use Tab, copy/paste, and verify Esc returns from the command bar to page input.
-2. Exercise all listed shortcuts with page focus. Synthetic Cmd+T/W/R/F passed their assertions; Cmd+[ did not navigate. Cmd+] and plain page keys remain unchecked after that failure.
-3. Enter a real full-screen Space. Enter and exit video/element full screen and confirm that browser chrome hides and returns.
-4. Check traffic-light layout, resizing, sidebar toggles, minimize/zoom, and visibility behind other windows.
-5. Swipe with a trackpad and exercise native context menus with a real mouse.
+`NEEDS PERSON` applies only to the trackpad row. `SKIPPED (screen locked)` applies only to a locked foreground launch. Neither status counts as PASS or changes the exit code. FAIL and offline results still produce a nonzero exit. The command prints `docs/webkit/needs-person.md` for NEEDS PERSON or SKIPPED results.
 
-Synthetic Cmd+L, URL typing, and Return loaded the fixture. Esc left `BrowserWindow` as first responder. Synthetic page clicks also left that responder, and the field stayed empty. These results do not prove the foreground path.
+Foreground launches keep scratch data/downloads, file keychain, and the harness probe. A lock file permits one foreground instance at a time. App-modal alerts get recorded, dismissed, and followed by quit; the row reports failure with their text. Unit checks cover locked/unlocked input, result classification, page-hit boundaries, modal text, and the background activation guard.
 
-## Plan and README corrections
+No check used `CGEventPost`, `osascript`, System Events, Accessibility APIs, or `screencapture`. Inputs and captures stay inside the app.
 
-The requested `WebKitPagePresses.swift` and `WebKitTab+PageInput.swift` files do not exist. Their relevant code lives in `WebKitWebView.swift` and `WebKitTab.swift`.
+## D. Element full-screen snapshot
 
-The generator previously had an explicit exclusion list, not general implementation discovery. The Release dev hook originally supported snapshots only. The new event hooks use `windows.dev`, since Release lacks `ArdiaDev` functions.
+Not captured. The real-key guard failed before entry. The earlier simulated `fullscreen.png` was removed to avoid presenting it as real element full screen. `normal.png` remains the measured traffic-light capture.
 
-Upstream's hidden-input description includes a richer fake-active/key-window model. This fork originally suppressed `makeKeyWindow` completely. The new internal key-window reference never takes system focus, but hidden page input remains blocked.
+## E. Remaining work
 
-The original layer snapshot omitted AppKit traffic buttons. Frame snapshots now cache those buttons separately.
+A real key window is the exact blocker. Page typing/Tab/copy/paste, Esc, page-focused history shortcuts, and element full screen remain unverified. The foreground mode does not turn these failures into NEEDS PERSON.
 
-## Not checked
+Run the checklist in `docs/webkit/needs-person.md` from the GUI session. First confirm that the scratch test window can become key through normal activation. Then rerun the foreground rows.
 
-No foreground window, real Space transition, trackpad recognition, foreground occlusion, or alternative keyboard layout was checked. The failed page-input row never reached Tab or copy/paste assertions. Steps 3 onward remain untouched. No push or release occurred.
+The earlier plan assumed that an unlocked session was sufficient for automatic activation. These runs did not support that assumption. The README now describes the real-key guard and in-app quit path. Steps 3 onward remain untouched. No push occurred.
 
 ## Files
 
 ```text
-apps/browser/macos/Ardia-macOS/BrowserWindow.swift
+docs/webkit/execution-plan.md
 docs/webkit/standins.md
-docs/webkit/step-2-results.md
-packages/ardiacore/ios/ArdiaChromeWindowHost.h
+packages/ardiacore/ios/WebKitModule.swift
 packages/ardiacore/ios/WebKitTab+UIDelegate.swift
 packages/ardiacore/ios/WebKitTab.swift
 packages/ardiacore/ios/WebKitWebView.swift
+packages/ardiacore/ios/WindowsModule.swift
 packages/ardiacore/ios/webkit/Host.mm
-packages/ardiacore/ios/webkit/Standins.mm
-packages/ardiacore/scripts/generate-webkit-standins.py
 packages/ardiacore/tests/webkit-window.test.mm
 scripts/webkit/README.md
+scripts/webkit/check.mjs
+scripts/webkit/check.test.mjs
+scripts/webkit/report.mjs
 scripts/webkit/rows.mjs
+scripts/webkit/support.mjs
 scripts/webkit/window-rows.mjs
-docs/webkit/execution-plan.md
+docs/webkit/needs-person.md
+docs/webkit/step-2-results.md
 ```

@@ -4,6 +4,8 @@ import { closeSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, write
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { attach, binaryOf, binaryPids, isAlive, processInfo, sleep } from "../lib/instance.mjs";
+import { tmpdir } from "node:os";
+import { RowOutcome, screenIsLocked } from "./report.mjs";
 import { titleOf } from "./fixture.mjs";
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -48,19 +50,29 @@ export class Browser {
     this.store = join(directory, "WebKit/Stores/default.sqlite3");
   }
   async launch() {
+    if (this.options.foreground) {
+      const session = await run("ioreg", ["-n", "Root", "-d1", "-a"]);
+      const converted = spawnSync("plutil", ["-convert", "json", "-o", "-", "-"], {input:session.text, encoding:"utf8"});
+      assert.equal(converted.status,0,"cannot decode GUI session state");
+      if (screenIsLocked(JSON.parse(converted.stdout))) throw new RowOutcome("SKIPPED (screen locked)","foreground row requires an unlocked session");
+      this.foregroundLock = join(tmpdir(),"ardia-webkit-foreground.lock");
+      const lock = openSync(this.foregroundLock,"wx");
+      closeSync(lock);
+      this.ownsForegroundLock = true;
+    }
     this.driver = null;
     mkdirSync(join(this.data, "downloads"), { recursive: true });
     writeFileSync(join(this.data, "perf-probe"), "");
     if (!this.options.onboarding) writeFileSync(join(this.data, "onboarding.json"), JSON.stringify({ version: 1, completedAt: 1 }));
-    for (const file of ["dev-eval.js", "dev-eval-result.json"]) rmSync(join(this.data, file), { force: true });
+    for (const file of ["dev-eval.js", "dev-eval-result.json", "modal-alert.json"]) rmSync(join(this.data, file), { force: true });
     if (this.options.observe) writeFileSync(join(this.data, "telemetry.json"), JSON.stringify({version:1,sharing:true,installId:"webkit-check",decidedAt:1,askDoneAt:1}));
     const binary = binaryOf(APP);
     const before = binaryPids(binary);
     const log = join(this.data, `launch-${this.launches.length + 1}.log`);
     this.started = Date.now();
-    const launched = spawnSync("open", ["-g", "-n", "--stdout", log, "--stderr", log,
-      "--env", "ARDIA_BACKGROUND=1", "--env", `ARDIA_DATA_DIR=${this.data}`,
-      "--env", `ARDIA_TEST=keychain=file${this.options.observe ? ",networkRequests" : ""}`, "--env", `ARDIA_INSTANCE=downloadsDir=${join(this.data, "downloads")},syncFolder=${join(this.data, "sync")},sharedFolders=${join(this.data, "shared")}`, APP], { encoding: "utf8", timeout: 10000 });
+    const launched = spawnSync("open", [...(this.options.foreground ? ["-n"] : ["-g", "-n"]), "--stdout", log, "--stderr", log,
+      ...(this.options.foreground ? [] : ["--env", "ARDIA_BACKGROUND=1"]), "--env", `ARDIA_DATA_DIR=${this.data}`,
+      "--env", `ARDIA_TEST=keychain=file${this.options.observe ? ",networkRequests" : ""}`, "--env", `ARDIA_INSTANCE=downloadsDir=${join(this.data, "downloads")},syncFolder=${join(this.data, "sync")},sharedFolders=${join(this.data, "shared")}`, APP], { encoding: "utf8", timeout: 10000, env: Object.fromEntries(Object.entries(process.env).filter(([key]) => key !== "ARDIA_BACKGROUND")) });
     assert.equal(launched.status, 0, launched.stderr);
     let pid;
     for (const end = Date.now() + 10000; Date.now() < end && !pid; await sleep(100)) {
@@ -77,10 +89,23 @@ export class Browser {
     await this.evaluate('ac.store.getState().updateSettings({searchSuggestions:false});return true;');
     this.window = await this.until('return ac.store.getState().windowOrder[0];');
     await this.until(`return ac.shell.windowIds().then(ids=>ids.includes(${JSON.stringify(this.window)}));`);
+    if (this.options.foreground) {
+      await this.evaluate('return ac.engine.call("windows.list").then(w=>ac.engine.call("windows.dev",{window:w.find(w=>w.hasRoot).window,action:"activate"}));');
+      try { await this.until('return ac.engine.call("windows.list").then(w=>w.some(w=>w.key));',10000); }
+      catch(error) {
+        const path=join(this.data,"activation.json");
+        throw new Error(`${error.message}; activation=${existsSync(path)?readFileSync(path,"utf8"):"callback did not run"}`);
+      }
+    }
     return this;
   }
+  assertNoModalAlert() {
+    const path = join(this.data,"modal-alert.json");
+    if (existsSync(path)) throw new Error(`app-modal alert: ${readFileSync(path,"utf8")}`);
+  }
   async evaluate(body, timeout = 10000) {
-    try { return await this.app.eval(body, { timeout }); }
+    this.assertNoModalAlert();
+    try { const value = await this.app.eval(body, { timeout }); this.assertNoModalAlert(); return value; }
     catch (error) { throw new Error(`${error.message}; eval: ${body.slice(0, 600)}`); }
   }
   async until(body, timeout = 20000) {
@@ -91,17 +116,34 @@ export class Browser {
     }
     throw new Error(`Timed out: ${body}; last=${JSON.stringify(last)}`);
   }
+  async requestQuit() {
+    return this.app.eval('return ac.engine.call("windows.devQuit");',{timeout:3000});
+  }
   async stop() {
-    if (!this.app?.alive) return;
-    const result = await this.app.quit({ timeout: 10000 });
-    assert.ok(["quit", "gone"].includes(result.how), `cleanup required ${result.how}`);
-    assert.ok(!isAlive(this.app.pid), "app survived cleanup");
+    try {
+      if (!this.app?.alive) return;
+      try { await this.requestQuit(); } catch {}
+      for (const end=Date.now()+10000;Date.now()<end&&this.app.alive;await sleep(100));
+      if (this.app.alive) {
+        this.app.kill("SIGTERM");
+        for(const end=Date.now()+3000;Date.now()<end&&this.app.alive;await sleep(100));
+        if(this.app.alive) {
+          this.app.kill("SIGKILL");
+          for(const end=Date.now()+1000;Date.now()<end&&this.app.alive;await sleep(100));
+        }
+        throw new Error("in-app quit timed out; owned instance terminated");
+      }
+      assert.ok(!isAlive(this.app.pid),"app survived cleanup");
+    } finally {
+      if(this.ownsForegroundLock) { rmSync(this.foregroundLock,{force:true}); this.ownsForegroundLock=false; }
+    }
   }
   async restart() { await this.stop(); return this.launch(); }
   async open(path = "/first", { window = this.window } = {}) {
     const url = path.startsWith("http") ? path : this.fixture.origin + path;
     const id = await this.evaluate(`const s=ac.store.getState();const empty=Object.values(s.tabs).find(t=>t.windowId===${JSON.stringify(window)}&&!t.url);if(empty){s.navigate(empty.id,${JSON.stringify(url)});s.activate(empty.id);return empty.id;}return s.newTab(${JSON.stringify(window)},{url:${JSON.stringify(url)}});`);
     await this.loaded(id, path.startsWith("http") ? undefined : titleOf(path));
+    if(this.options.foreground) await this.until(`return ac.engine.call("webKit.devPageState",{tabId:${JSON.stringify(id)}}).then(s=>s.active&&s.key);`,10000);
     return id;
   }
   async loaded(id, title) {

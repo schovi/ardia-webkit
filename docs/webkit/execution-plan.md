@@ -52,7 +52,8 @@ Not done. Each line is covered by a step below:
 2. **Scope.** Do the step's list. Report anything else you find, do not fix it.
 3. **No Chromium.** No Chromium build, no `fetch-engine.sh`, nothing in `~/chromium-build`. No new dependencies. No deleting upstream files. No edits in `apps/linux`, `apps/ios`, `apps/site`, `apps/dashboard`, `apps/videos`.
 4. **This Mac has no person at it.** The screen is often locked.
-   - Launch only hidden: `open -g -n --env ARDIA_BACKGROUND=1 --env ARDIA_DATA_DIR=<scratch> ...`. Never plain `open`.
+   - On this unattended Mac, foreground rows follow [the foreground test rules](../../scripts/webkit/README.md#window-and-keyboard-checks), including locked-session skips and immediate failure/quit for app-modal alerts.
+   - Otherwise launch only hidden: `open -g -n --env ARDIA_BACKGROUND=1 --env ARDIA_DATA_DIR=<scratch> ...`. Never plain `open`.
    - Never show a dialog. Never run anything that asks for a password, Touch ID or `sudo`.
    - Never read or write `~/Downloads`, `~/Documents`, `~/Desktop`. macOS asks for consent with a dialog and the call hangs. Give every instance a `downloadsDir` and a data dir in scratch.
    - Screen captures fail when locked. Use the in-process snapshots.
