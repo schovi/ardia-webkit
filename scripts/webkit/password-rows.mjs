@@ -28,6 +28,9 @@ async function savedFromPage(browser) {
 }
 async function focus(browser,id,selector="#password") {
   await browser.execute(id,`document.querySelector(${json(selector)}).focus();`);
+  await sleep(300);
+  assert.equal((await call(browser,"webKit.devPasswordFocus",{tabId:id,probe:true})).empty,true,"a scripted focus without a user gesture filled the password");
+  await call(browser,"webKit.devPasswordFocus",{tabId:id});
 }
 async function filled(browser,id,user="fixture",secret=password) {
   await browser.until(`return ac.webviews.get(${json(id)}).evaluate(${json(`post("result",JSON.stringify(document.querySelector('#password').value === ${json(secret)} && (!document.querySelector('#username') || document.querySelector('#username').value === ${json(user)})));`)});`);
@@ -79,6 +82,9 @@ export const passwordRows = {
     await browser.loaded(twoStep,titleOf("/pw-password"));await focus(browser,twoStep);await filled(browser,twoStep);
     const same=await browser.open("/pw-same-frame");
     await browser.execute(same,"document.querySelector('iframe').contentDocument.querySelector('#password').focus()");
+    await sleep(300);
+    assert.equal((await call(browser,"webKit.devPasswordFocus",{tabId:same,subframe:true,probe:true})).empty,true,"a scripted focus without a user gesture filled the password");
+    await call(browser,"webKit.devPasswordFocus",{tabId:same,subframe:true});
     await browser.until(`return ac.webviews.get(${json(same)}).evaluate(${json(`post("result",JSON.stringify(document.querySelector('iframe').contentDocument.querySelector('#password').value===${json(password)}));`)});`);
     cleanLogs(browser);
     return "new process fills and authenticates; last-used updated; dynamic form, two-step form and same-origin iframe fill";

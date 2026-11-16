@@ -69,7 +69,7 @@ extension WebKitTab {
           self?.emit("passwordPrompt", ["state": "saved", "origin": origin, "username": "", "passwordLength": 0, "federation": "", "usernames": []])
         }
       } else if kind == "focus", !logins.isEmpty {
-        if logins.count == 1, data["empty"] as? Bool == true {
+        if logins.count == 1, data["empty"] as? Bool == true, data["gesture"] as? Bool == true {
           fillPassword(logins[0], token: token, frame: frame)
         } else if data["gesture"] as? Bool == true {
           showPasswordMenu(logins, data: data, token: token, frame: frame)
