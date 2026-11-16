@@ -335,6 +335,6 @@ Each of these is its own decision after the steps above.
 | 3. Page features | Must implemented; Should deferred | `f2fef5c3d` | 32 PASS, 4 no-key-window skips, 2 NEEDS PERSON. Inspector UI and visual checks remain manual. [Evidence and remaining stubs](step-3-results.md). |
 | 4. Site and browser settings | done | `cba6075df` | 8 rows pass: zoom per site, site permissions, clear site data, blocker controls, download settings, profiles, search engine choice, About. Two limits accepted: the Site Controls sound toggle keeps upstream's own JS site-mute path for WebKit pages (it works and persists, outside SQLite), and a stored location decision does not answer a page's geolocation request (WebKit has no public delegate for it). [Evidence](step-4-results.md). |
 | 5. Bookmarks | done | `5540bf2b5` | 6 bookmark rows and native op tests pass; SQLite persistence, Netscape export, sync keys/order and private base-profile reads verified. Full check: 46 PASS, 4 no-key-window skips, 2 NEEDS PERSON. Physical drag and export picker remain manual. [Evidence](step-5-results.md). |
-| 6. Import | not started | | |
+| 6. Import | implemented; real profiles unavailable | `98cafb89e` | Six fixture rows pass; 52 PASS, 6 skips, 2 NEEDS PERSON. Local Arc and Chrome copies contain zero readable inputs, so real import counts/timings remain unproven. [Evidence](step-6-results.md). |
 | 7. Passwords | not started | | |
 | 8. Extensions | not started | | |
