@@ -354,3 +354,10 @@ final class WebKitContentBlocker {
     applied.setObject(want as NSString, forKey: controller)
   }
 }
+
+@_cdecl("ArdiaWebKitContentBlockerState")
+func webKitContentBlockerState() -> NSDictionary {
+  var state = WebKitContentBlocker.shared.state
+  state["blocked"] = WebKitHub.shared.transfers.liveTabs.reduce(0) { $0 + $1.blocked.count }
+  return state as NSDictionary
+}

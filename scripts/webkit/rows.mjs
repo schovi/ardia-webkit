@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { APP, BUILD, run, sleep } from "./support.mjs";
 import { binaryOf, isAlive } from "../lib/instance.mjs";
 import { AD_PATH, DOWNLOAD, titleOf } from "./fixture.mjs";
+import { settingsTour } from "./settings-tour.mjs";
 import { ALLOWED_TEST, assessTests } from "./report.mjs";
 
 class Offline extends Error { constructor(message) { super(message); this.offline = true; } }
@@ -43,6 +44,7 @@ async function terminate(browser) {
 }
 
 export const rows = {
+  "settings-tour": settingsTour,
   "no-upstream": async ({ browser, fixture }) => {
     const requests = () => existsSync(join(browser.data, "requests.jsonl")) ? readFileSync(join(browser.data, "requests.jsonl"), "utf8").trim().split("\n").filter(Boolean).map(JSON.parse) : [];
     const evidence = join(BUILD, "step-1-evidence");
@@ -236,6 +238,11 @@ export const rows = {
     assert.equal(await load(AD_PATH), "blocked");
     const blocked = await browser.until(`const n=ac.pageState.getState().pages[${JSON.stringify(id)}]?.blocked??0;return n>${before}?n:null;`);
     assert.equal(fixture.hits.filter((path) => path === AD_PATH).length, previousHits, "ad request reached the fixture");
+    const settings = await browser.evaluate('return ac.engine.call("contentBlocker.state");');
+    assert.equal(settings.enabled, state.enabled);
+    assert.equal(settings.stats.ready, state.ready);
+    assert.equal(settings.stats.blocked, blocked);
+    assert.ok(settings.lists.some(list => list.id === "easylist" && list.enabled));
     return `bundled lists=${state.lists}; control loaded; local ad blocked; blocked count=${blocked}; server received no ad request`;
   },
   favicon: async ({ browser }) => {
@@ -304,7 +311,7 @@ export const rows = {
   native: async ({ scratch }) => {
     const executable = join(scratch, "native-check");
     await run("xcrun", ["clang++", "-std=c++20", "-fobjc-arc", "-fblocks", "-Wno-incomplete-implementation", "-framework", "AppKit", "-framework", "Security", "-lsqlite3",
-      "packages/ardiacore/tests/webkit-data.test.mm", "packages/ardiacore/ios/ArdiaLaunchConfig.mm", ...["Store", "Network", "Favicons"].map((name) => `packages/ardiacore/ios/webkit/${name}.mm`), "-o", executable]);
+      "packages/ardiacore/tests/webkit-data.test.mm", "packages/ardiacore/ios/ArdiaLaunchConfig.mm", ...["Store", "Network", "Favicons", "Services", "EngineBridge"].map((name) => `packages/ardiacore/ios/webkit/${name}.mm`), "-o", executable]);
     return (await run(executable, [scratch], { env: { ARDIA_DATA_DIR: scratch, ARDIA_TEST: "networkRequests" } })).text.trim();
   },
   js: async ({ scratch }) => {

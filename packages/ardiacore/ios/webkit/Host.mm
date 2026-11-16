@@ -6,6 +6,7 @@
 #import "../ArdiaFieldTiming.h"
 #import "Store.h"
 #import "Network.h"
+#import "Settings.h"
 
 void ArdiaWebViewsSetFieldTiming(BOOL on) {}
 
@@ -68,11 +69,20 @@ BOOL ArdiaPerformReservedKey(NSEvent *event) { return NO; }
 
 @implementation ArdiaChromeWindowHost (Dev)
 + (NSString *)devAction:(NSString *)action window:(NSWindow *)window {
-  if (!ArdiaLaunchConfig.shared.testInstance || ![action hasPrefix:@"snapshotFrame:"]) return @"unsupported";
-  NSString *path = [action substringFromIndex:@"snapshotFrame:".length];
+  if (!ArdiaLaunchConfig.shared.testInstance) return @"unsupported";
+  NSView *view = window.contentView;
+  NSString *path;
+  BOOL pane = [action hasPrefix:@"snapshotPane:"];
+  if (pane) {
+    NSArray *parts = [[action substringFromIndex:@"snapshotPane:".length] componentsSeparatedByString:@"|"];
+    if (parts.count != 2) return @"invalid pane snapshot";
+    view = WebKitFindNativeView(view, parts[0]);
+    if (!view || view.bounds.size.width < 1 || view.bounds.size.height < 1 || !view.subviews.count) return @"pane root not rendered";
+    path = parts[1];
+  } else if ([action hasPrefix:@"snapshotFrame:"]) path = [action substringFromIndex:@"snapshotFrame:".length];
+  else return @"unsupported";
   NSString *scratch = [ArdiaLaunchConfig.shared.dataDirectory stringByAppendingString:@"/"];
   if (![path.stringByStandardizingPath hasPrefix:scratch]) return @"snapshot must stay in scratch data";
-  NSView *view = window.contentView;
   CGFloat scale = window.backingScaleFactor;
   NSBitmapImageRep *bitmap = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:nullptr pixelsWide:view.bounds.size.width*scale pixelsHigh:view.bounds.size.height*scale bitsPerSample:8 samplesPerPixel:4 hasAlpha:YES isPlanar:NO colorSpaceName:NSDeviceRGBColorSpace bytesPerRow:0 bitsPerPixel:0];
   NSGraphicsContext *context = [NSGraphicsContext graphicsContextWithBitmapImageRep:bitmap];
@@ -86,6 +96,7 @@ BOOL ArdiaPerformReservedKey(NSEvent *event) { return NO; }
     CGContextScaleCTM(cg, 1, -1);
   }
   [view.layer renderInContext:cg];
+  if (pane && !WebKitSnapshotHasContent(bitmap)) return @"blank pane snapshot";
   NSData *png = [bitmap representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
   return [png writeToFile:path atomically:YES] ? @"ok" : @"write failed";
 }

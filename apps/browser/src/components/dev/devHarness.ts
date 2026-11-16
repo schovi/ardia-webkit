@@ -109,6 +109,9 @@ export function startDevHarness() {
     get settingsSearch(): typeof import("../../state/settings/searchState") & typeof import("../settings/SettingsSearch") & typeof import("../settings/anchors") {
       return { ...require("../../state/settings/searchState"), ...require("../settings/SettingsSearch"), ...require("../settings/anchors") };
     },
+    get settingsPanes(): typeof import("../settings/settingsIndex").PANES {
+      return require("../settings/settingsIndex").PANES;
+    },
     get settingsData(): typeof import("../../state/settings/paneData") {
       return require("../../state/settings/paneData");
     },

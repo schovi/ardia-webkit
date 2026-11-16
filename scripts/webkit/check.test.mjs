@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ALLOWED_TEST, assessTests, parseOptions, standinReport } from "./report.mjs";
 import { checkNetworkConnection } from "./rows.mjs";
+import { assertNoJavaScriptException } from "./settings-tour.mjs";
 import { AD_PATH, DOWNLOAD, startFixture } from "./fixture.mjs";
 
 const totals = (pass, fail) => `1..${pass + fail}\n# tests ${pass + fail}\n# pass ${pass}\n# fail ${fail}\n# cancelled 0\n# skipped 0\n`;
@@ -63,4 +64,11 @@ test("network absence is offline, HTTP errors fail, and successful preflight com
   await assert.rejects(checkNetworkConnection("https://fixture.invalid/"), (error) => !error.offline && /HTTP 429/.test(error.message));
   request.mock.mockImplementation(async () => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(0) }));
   await checkNetworkConnection("https://fixture.invalid/");
+});
+
+test("settings tour rejects logged JS exceptions, including caught exceptions", () => {
+  assertNoJavaScriptException("2026-11-16 warn Legacy Architecture is deprecated\n");
+  for (const line of ["2026-11-16 error failed", "TypeError: Cannot read property 'ready' of undefined", "2026-11-16 warn list failed ReferenceError: missing", "Unhandled JS Exception", "ArdiaError: the reply is not JSON"]) {
+    assert.throws(() => assertNoJavaScriptException(line), /JS exception/);
+  }
 });

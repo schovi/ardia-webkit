@@ -1,5 +1,9 @@
 #import "../ios/webkit/Store.h"
 #import "../ios/webkit/Network.h"
+#import "../ios/webkit/Settings.h"
+#import "../ios/ArdiaServices.h"
+#import "../ios/ArdiaEngineBridge.h"
+#import "../ios/ArdiaContentBlocker.h"
 #import "../ios/ArdiaEvents.h"
 #import "../ios/ArdiaLaunchConfig.h"
 #import "../ios/ArdiaHost.h"
@@ -19,10 +23,62 @@ static void Check(bool value, const char *name) {
 + (void)emit:(NSString *)name data:(NSDictionary *)data {}
 @end
 
+@implementation ArdiaEngineBridge
+@end
+@implementation ArdiaServices
+@end
+@implementation ArdiaContentBlocker
+@end
+extern "C" NSDictionary *ArdiaWebKitContentBlockerState(void) { return @{}; }
+
+@interface TestSettingsView : NSView
+@property(copy) NSString *nativeID;
+@end
+@implementation TestSettingsView
+@end
+
 int main(int argc, const char **argv) {
   @autoreleasepool {
     Check(argc == 2, "scratch directory argument");
     directory = @(argv[1]);
+    __block BOOL emptyExtensions = NO;
+    [ArdiaServices listExtensions:@"" reply:^(id result, NSString *error) { emptyExtensions = !error && [result[@"extensions"] isEqual:@[]]; }];
+    Check(emptyExtensions, "extensions list has a correctly shaped empty result");
+    for (NSString *name in @[@"ac_bookmarks_watch", @"ac_extensions_watch_actions", @"ac_extensions_load_health", @"ac_bookmarks_tree"]) {
+      __block NSDictionary *result;
+      [ArdiaEngineBridge call:name profile:@"" args:@"{}" completion:^(NSString *json) {
+        result = [NSJSONSerialization JSONObjectWithData:[json dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
+      }];
+      Check(result != nil, "placeholder engine calls return JSON objects");
+      if ([name isEqual:@"ac_bookmarks_tree"]) Check([result[@"bar"][@"c"] isEqual:@[]] && [result[@"other"][@"k"] isEqual:@"f"], "bookmark placeholder has both empty folder roots");
+      if ([name isEqual:@"ac_extensions_load_health"]) Check([result[@"enabled"] intValue] == 0 && [result[@"disabled"] isKindOfClass:NSDictionary.class], "extension health placeholder shape");
+    }
+    NSDictionary *emptyBlocker = WebKitContentBlockerSettings(@{}, @{});
+    Check([emptyBlocker[@"lists"] count] == 0 && [emptyBlocker[@"allowedHosts"] count] == 0, "empty blocker arrays");
+    Check([emptyBlocker[@"stats"] isKindOfClass:NSDictionary.class] && ![emptyBlocker[@"stats"][@"ready"] boolValue], "empty blocker stats shape");
+    NSDictionary *manifest = @{@"rulesets": @[
+      @{@"id": @"easylist", @"name": @"EasyList", @"group": @"default", @"enabled": @YES, @"converted": @7, @"cosmetic": @3, @"skipped": @2},
+      @{@"id": @"easyprivacy", @"group": @"default", @"enabled": @YES, @"converted": @5},
+      @{@"id": @"annoyances-cookies", @"group": @"annoyances"}, @{@"id": @"regional", @"group": @"regions"},
+      @{@"id": @"security", @"group": @"malware"}, @{@"id": @"social", @"group": @"annoyances"} ]};
+    NSDictionary *blocker = WebKitContentBlockerSettings(@{@"ready": @YES, @"enabled": @YES, @"version": @"1", @"rulesets": @[@"easylist", @"easyprivacy"], @"allowedHosts": @[@"local.test"], @"compileMs": @12, @"blocked": @4, @"error": @"fixture"}, manifest);
+    Check([blocker[@"lists"] count] == 6 && [blocker[@"lists"][0][@"title"] isEqual:@"EasyList"], "blocker list metadata");
+    Check([blocker[@"lists"][0][@"filters"] intValue] == 10 && [blocker[@"lists"][0][@"enabled"] boolValue], "real selected list counts");
+    NSArray *categories = [blocker[@"lists"] valueForKey:@"category"];
+    Check([categories isEqual:@[@"ads", @"trackers", @"cookies", @"regional", @"security", @"annoyances"]], "blocker categories");
+    Check([blocker[@"stats"][@"networkFilters"] intValue] == 12 && [blocker[@"stats"][@"cosmeticFilters"] intValue] == 3 && [blocker[@"stats"][@"blocked"] intValue] == 4, "blocker real statistics");
+    Check([blocker[@"stats"][@"parseMs"] intValue] == 0 && [blocker[@"stats"][@"error"] isEqual:@"fixture"], "blocker default timing and real error");
+    TestSettingsView *root = [[TestSettingsView alloc] initWithFrame:NSMakeRect(0, 0, 16, 16)];
+    TestSettingsView *child = [[TestSettingsView alloc] initWithFrame:NSMakeRect(0, 0, 16, 16)];
+    child.nativeID = @"settings-pane-fixture";
+    [root addSubview:child];
+    Check(WebKitFindNativeView(root, child.nativeID) == child && !WebKitFindNativeView(root, @"missing"), "snapshot selects the pane root only");
+    NSBitmapImageRep *blank = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:nullptr pixelsWide:16 pixelsHigh:16 bitsPerSample:8 samplesPerPixel:4 hasAlpha:YES isPlanar:NO colorSpaceName:NSDeviceRGBColorSpace bytesPerRow:0 bitsPerPixel:0];
+    memset(blank.bitmapData, 255, blank.bytesPerRow * blank.pixelsHigh);
+    Check(!WebKitSnapshotHasContent(blank), "blank pane rejected");
+    NSUInteger black[] = {0,0,0,255};
+    [blank setPixel:black atX:8 y:8];
+    Check(WebKitSnapshotHasContent(blank), "rendered pane accepted");
     NSString *cache = [directory stringByAppendingPathComponent:@"switches-cache.json"];
     [@"{\"version\":1,\"switches\":{\"sidebarSlide\":false}}" writeToFile:cache atomically:YES encoding:NSUTF8StringEncoding error:nil];
     ArdiaLaunchConfig *launch = [[ArdiaLaunchConfig alloc] initWithEnvironment:@{@"ARDIA_DATA_DIR": directory} signedForDistribution:^BOOL { return NO; }];
@@ -102,6 +158,6 @@ int main(int argc, const char **argv) {
     Check(badIcon, "favicon parser rejects malformed data");
     store = nil; work = nil;
     [NSFileManager.defaultManager removeItemAtPath:stores error:nil];
-    std::puts("PASS WebKit data: persistence, isolation, deduplication, deletion, limits, favicon and request validation");
+    std::puts("PASS WebKit data: persistence, isolation, deduplication, deletion, limits, favicon, requests, settings shapes and pane snapshots");
   }
 }

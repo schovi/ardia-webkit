@@ -37,8 +37,18 @@ The row requires JS and native requests to appear in the observation and reach t
 
 The observer covers URL Loading System requests. It does not capture raw sockets, OS services, or WebKit's separate network process. The source inventory found no additional app-owned upstream transport outside that system.
 
-## Remaining blocker
+## Settings response repairs
 
-Opening Privacy settings crashes with `TypeError: Cannot read property 'ready' of undefined`. `ArdiaContentBlocker.state` returns `{}` in `packages/ardiacore/ios/webkit/Standins.mm:305`. `blockerAvailable` reads `s.stats.ready` in `apps/browser/src/state/site/contentBlocking.ts:3`. Both paths are unchanged from `90cd7415b`.
+The Privacy crash came from `ArdiaContentBlocker.state` returning `{}`. Its hand-written replacement reads the existing WebKit state and bundled list metadata. It supplies real ready/enabled flags, selected lists, allowed hosts, version, filter counts, error, and the sum of live tabs' blocked counts (`stats.blocked`). Unavailable lookup and parse timings default to zero.
 
-Step 4 owns the content-blocker settings calls. Step 1 leaves this failure visible: `no-upstream` fails while opening Privacy, before its 90-second deadline. The observation controls pass, and the row keeps its request list and crash logs. The onboarding and General snapshots exist; the Privacy snapshot does not.
+The Settings tour also found malformed extension and bookmark responses during startup and pane prefetch. These read-only placeholders keep the UI renderable until their planned implementation steps:
+
+| Pane or path | Call | Placeholder | Future step |
+|---|---|---|---|
+| General prefetch and Extensions | `ArdiaServices.listExtensions` / `extensions.list` | `{extensions: []}` | 8 |
+| Startup and Extensions | `ac_extensions_load_health` | `{dropped: 0, enabled: 0, disabled: {}}` | 8 |
+| Startup and Extensions | `ac_extensions_watch_actions` | `{}` acknowledgement; no watch | 8 |
+| Startup before Settings | `ac_bookmarks_watch` | `{}` acknowledgement; no watch | 5 |
+| Startup before Settings | `ac_bookmarks_tree` | Empty `bar` and `other` folder roots, each with `id`, `k: "f"`, `t`, `a: 0`, `c: []` | 5 |
+
+`setEnabled`, `setList:enabled`, and `setAllowed:onHost` remain generated stand-ins. The placeholders above do not persist changes or implement their features. The tour checks all 14 available top-level panes, including advanced panes; it does not test sheets or setting actions.

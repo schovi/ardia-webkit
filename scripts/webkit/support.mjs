@@ -60,7 +60,7 @@ export class Browser {
     this.started = Date.now();
     const launched = spawnSync("open", ["-g", "-n", "--stdout", log, "--stderr", log,
       "--env", "ARDIA_BACKGROUND=1", "--env", `ARDIA_DATA_DIR=${this.data}`,
-      "--env", `ARDIA_TEST=keychain=file${this.options.observe ? ",networkRequests" : ""}`, "--env", `ARDIA_INSTANCE=downloadsDir=${join(this.data, "downloads")}`, APP], { encoding: "utf8", timeout: 10000 });
+      "--env", `ARDIA_TEST=keychain=file${this.options.observe ? ",networkRequests" : ""}`, "--env", `ARDIA_INSTANCE=downloadsDir=${join(this.data, "downloads")},syncFolder=${join(this.data, "sync")},sharedFolders=${join(this.data, "shared")}`, APP], { encoding: "utf8", timeout: 10000 });
     assert.equal(launched.status, 0, launched.stderr);
     let pid;
     for (const end = Date.now() + 10000; Date.now() < end && !pid; await sleep(100)) {

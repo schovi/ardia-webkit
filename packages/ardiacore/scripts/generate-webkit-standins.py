@@ -56,7 +56,7 @@ for header in headers:
                     output.append(method(f'{kind} ({value_type}){getter[1] if getter else property_name};'))
                 if 'readonly' not in attributes:
                     output.append(method(f'{kind} (void)set{property_name[0].upper() + property_name[1:]}:({value_type})value;'))
-            elif not any(name == owner and declaration.startswith(prefix) for owner, prefix in [('ArdiaEngineBridge', '+ (void)call:'), ('ArdiaHost', '+ (BOOL)isPrivateProfile:'), ('ArdiaHost', '+ (NSString *)baseProfileOf:'), ('ArdiaServices', '+ (void)clearBrowsingData:'), ('ArdiaServices', '+ (void)searchEngineList:')]):
+            elif not any(name == owner and declaration.startswith(prefix) for owner, prefix in [('ArdiaEngineBridge', '+ (void)call:'), ('ArdiaHost', '+ (BOOL)isPrivateProfile:'), ('ArdiaHost', '+ (NSString *)baseProfileOf:'), ('ArdiaServices', '+ (void)clearBrowsingData:'), ('ArdiaServices', '+ (void)searchEngineList:'), ('ArdiaContentBlocker', '+ (void)state:'), ('ArdiaServices', '+ (void)listExtensions:')]):
                 output.append(method(declaration))
         output.append('@end')
 (root / 'webkit/Standins.mm').write_text('\n'.join(output) + '\n')

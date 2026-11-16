@@ -35,6 +35,16 @@ Each row starts with fresh data. Rows that test persistence relaunch on their ow
 
 Every run regenerates `docs/webkit/standins.md` for its selected rows. Counts describe logged hits over all launches, not invocation counts. Run the full check before committing that report; a single-row run has different coverage.
 
+## Tour Settings
+
+`settings-tour` reads the available pane list from the app and opens every pane with advanced settings enabled. It captures each pane's own native root, not the surrounding window. A missing root, uniform image, app exit, or logged JS exception fails the row. Caught exceptions and startup exceptions count too.
+
+The row keeps per-pane PNGs and logs plus `results.json` in `apps/browser/build-webkit/settings-tour-evidence/`. It continues after failures to report all panes. A crash starts another hidden instance for the remaining panes, but the row still fails.
+
+The native check tests empty blocker responses, real list metadata, blocked counts, placeholder replies, pane-root lookup, and blank-image rejection. `smoke-k` compares the settings response with the real WebKit blocker and its blocked count.
+
+The harness points sync and shared folders at scratch paths. The tour opens panes only; it does not press setting controls, unlock passwords, or show dialogs.
+
 ## Observe app requests
 
 `no-upstream` leaves onboarding incomplete and seeds telemetry sharing as enabled. It finishes the appearance screen through the harness, loads a fixture page, opens General and Privacy settings, and observes at least 90 seconds from launch through quit.

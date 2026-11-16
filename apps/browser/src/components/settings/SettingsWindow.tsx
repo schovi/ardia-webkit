@@ -154,7 +154,7 @@ export function SettingsWindow() {
           onScroll={(e) => void (scrollTop.current = e.nativeEvent.contentOffset.y)}
           onLayout={(e) => void (viewport.current = e.nativeEvent.layout.height)}
           contentContainerStyle={PANE_SCROLL}>
-          <View key={key} ref={content} collapsable={false} style={PANE_COLUMN}>
+          <View key={key} nativeID={shown ? `settings-pane-${shown.pane}` : undefined} ref={content} collapsable={false} style={PANE_COLUMN}>
             {shown ? (
               <SettingsPaneContext.Provider value={shown.pane}>
                 <Pane {...shown} />
