@@ -4,6 +4,7 @@ import WebKit
 
 final class WebKitHub: NSObject, WKScriptMessageHandler {
   static let shared = WebKitHub()
+  static let passwordWorld = WKContentWorld.world(name: "ardia.passwords")
   static let world = WKContentWorld.world(name: "ardia")
   static let silenced = LaunchConfig.shared.background && !LaunchConfig.shared.instanceFlag("allowAudio")
 
@@ -87,6 +88,8 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
     if !Self.passkeysEntitled {
       controller.addUserScript(WKUserScript(source: Self.hidePasskeys, injectionTime: .atDocumentStart, forMainFrameOnly: false, in: .page))
     }
+    controller.addUserScript(WKUserScript(source: WebKitPasswordScript.source, injectionTime: .atDocumentStart, forMainFrameOnly: false, in: Self.passwordWorld))
+    controller.add(self, contentWorld: Self.passwordWorld, name: "ardiaPasswords")
     config.userContentController = controller
     WebKitContentBlocker.shared.attach(controller)
     config.applicationNameForUserAgent = "Version/\(Self.safariVersion) Safari/605.1.15"
@@ -109,6 +112,12 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
     guard let webView = message.webView, let tab = transfers.owner(of: webView), let body = message.body as? [String: Any],
       let kind = body["kind"] as? String
     else { return }
+    if message.name == "ardiaPasswords" {
+      guard message.world == Self.passwordWorld, let data = body["data"] as? [String: Any], let token = body["token"] as? String else { return }
+      if kind == "ready", LaunchConfig.shared.testInstance { tab.passwordState.frames.append(message.frameInfo) }
+      tab.passwordMessage(kind, data: data, token: token, frame: message.frameInfo)
+      return
+    }
     if kind == "devPermission", LaunchConfig.shared.testInstance, let permission = body["data"] as? String {
       tab.webView(webView, requestMediaCapturePermissionFor: message.frameInfo.securityOrigin, initiatedByFrame: message.frameInfo,
         type: permission == "camera" ? .camera : .microphone) { decision in

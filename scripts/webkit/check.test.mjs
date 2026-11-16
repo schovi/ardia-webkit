@@ -145,3 +145,20 @@ test("profile copies include importer inputs and omit secrets and caches", async
     assert.deepEqual(readdirSync(join(destination,"Default")),["Bookmarks","History","History-wal","Preferences"]);
   } finally {rmSync(scratch,{recursive:true,force:true});}
 });
+
+test("password fixtures cover plain, two-step, signup, dynamic, frames and hostile pages", async () => {
+  const fixture = await startFixture();
+  try {
+    const plain=await (await fetch(fixture.origin+"/pw-plain")).text();
+    assert.match(plain,/method="post"/);assert.match(plain,/autocomplete="username"/);
+    assert.equal(((await (await fetch(fixture.origin+"/pw-signup")).text()).match(/type="password"/g)??[]).length,2);
+    assert.match(await (await fetch(fixture.origin+"/pw-username")).text(),/action="\/pw-password"/);
+    assert.match(await (await fetch(fixture.origin+"/pw-dynamic")).text(),/addEventListener\('load'/);
+    assert.match(await (await fetch(fixture.origin+"/pw-cross-frame")).text(),/http:\/\/localhost:/);
+    assert.match(await (await fetch(fixture.origin+"/pw-same-frame")).text(),/src="\/pw-plain"/);
+    assert.match(await (await fetch(fixture.origin+"/pw-hostile")).text(),/handler.postMessage/);
+    const signed=await fetch(fixture.origin+"/pw-success",{method:"POST",body:new URLSearchParams({username:"fixture",password:"fixture-webkit-pass"})});
+    assert.match(await signed.text(),/Signed in/);
+    assert.deepEqual(fixture.passwordLogins,["fixture"]);
+  } finally {await fixture.close();}
+});

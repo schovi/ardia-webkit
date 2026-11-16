@@ -232,10 +232,6 @@
 @end
 
 @implementation ArdiaEngineBridge
-+ (void)callForSecretReply:(NSString *)name
-                   profile:(NSString *)profile
-                   timeout:(NSTimeInterval)timeout
-                completion:(void (^)(NSDictionary<NSString *, id> *_Nullable reply))completion { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (completion) completion({}); }
 + (void)forwardEngineEvents { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); }
 + (void)observe:(NSString *)topic handler:(void (^)(NSDictionary<NSString *, id> *payload))handler { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (handler) handler({}); }
 @end
@@ -245,19 +241,6 @@
        profile:(NSString *)profile
           args:(nullable NSDictionary<NSString *, id> *)args
     completion:(ArdiaCoreResult)completion { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (completion) completion({}); }
-+ (void)listPasswords:(NSString *)profile reply:(ArdiaServiceReply)reply { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (reply) reply({}, {}); }
-+ (void)unlockPasswords:(NSString *)profile reply:(ArdiaServiceReply)reply { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (reply) reply({}, {}); }
-+ (void)password:(NSString *)profile origin:(NSString *)origin username:(NSString *)username reply:(ArdiaServiceReply)reply { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (reply) reply({}, {}); }
-+ (void)savePassword:(NSString *)profile origin:(NSString *)origin username:(NSString *)username password:(NSString *)password
-               reply:(ArdiaServiceReply)reply { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (reply) reply({}, {}); }
-+ (void)updatePassword:(NSString *)profile origin:(NSString *)origin username:(NSString *)username
-           newUsername:(nullable NSString *)newUsername newPassword:(nullable NSString *)newPassword reply:(ArdiaServiceReply)reply { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (reply) reply({}, {}); }
-+ (void)deletePassword:(NSString *)profile origin:(NSString *)origin username:(NSString *)username reply:(ArdiaServiceReply)reply { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (reply) reply({}, {}); }
-+ (void)neverSaveOrigins:(NSString *)profile reply:(ArdiaServiceReply)reply { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (reply) reply({}, {}); }
-+ (void)allowSaving:(NSString *)profile origin:(NSString *)origin reply:(ArdiaServiceReply)reply { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (reply) reply({}, {}); }
-+ (void)exportPasswords:(NSString *)profile path:(nullable NSString *)path reply:(ArdiaServiceReply)reply { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (reply) reply({}, {}); }
-+ (BOOL)profileToggle:(ArdiaProfileToggle)toggle profile:(NSString *)profile { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
-+ (void)setProfileToggle:(ArdiaProfileToggle)toggle value:(BOOL)value profile:(NSString *)profile { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); }
 + (void)addresses:(NSString *)profile reply:(ArdiaServiceReply)reply { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (reply) reply({}, {}); }
 + (void)saveAddress:(NSDictionary<NSString *, id> *)address profile:(NSString *)profile reply:(ArdiaServiceReply)reply { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (reply) reply({}, {}); }
 + (void)cards:(NSString *)profile reply:(ArdiaServiceReply)reply { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (reply) reply({}, {}); }

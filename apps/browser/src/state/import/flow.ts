@@ -35,7 +35,7 @@ export type ImportFlow = {
   step: ImportStep;
 };
 
-export const IMPORT_KINDS: ImportKind[] = ["bookmarks", "history", "cookies", "tabs", "spaces", "pinnedTabs", "favorites"];
+export const IMPORT_KINDS: ImportKind[] = ["bookmarks", "history", "passwords", "cookies", "tabs", "spaces", "pinnedTabs", "favorites"];
 export const ENCRYPTED_KINDS: ImportKind[] = ["passwords", "cookies", "autofill"];
 export const APP_TAB_KINDS: ImportKind[] = ["tabs", "pinnedTabs"];
 export const NO_EXTENSIONS: FoundExtensions = { profileId: "", list: [], opened: false };

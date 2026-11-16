@@ -83,7 +83,7 @@ export function DoneBody({ flow }: { flow: ImportFlow }) {
   const { step } = flow;
   if (step.name !== "done") return null;
   const { counts, failures } = step;
-  const notes = [...step.notes, "Passwords, addresses and cards were not imported in this build."];
+  const notes = [...step.notes, "Addresses and cards were not imported in this build."];
   const summary = summaryOf(counts);
   if (failures.length)
     return (

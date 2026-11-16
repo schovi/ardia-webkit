@@ -156,6 +156,24 @@ The wizard's `acImport` handle works in Release only for an isolated test instan
 
 The Arc rows compare space and tab counts, relative pin and folder order, folder membership, and theme presence. Split folders become split views. The Chrome rows compare bookmark nesting/order and history titles, last visits, and aggregate visit counts, then relaunch. History stores the aggregate count and the last known visit, without inventing individual visit times.
 
-`import-cookies` uses the existing invented Chrome fixture and `ARDIA_TEST=importSecret`. It proves private-profile rejection and an imported session cookie on the next server request. It never requests another browser's Keychain item. Passwords and autofill stay hidden, with zero imported counts and explicit result text.
+`import-cookies` uses the existing invented Chrome fixture and `ARDIA_TEST=importSecret`. It proves private-profile rejection and an imported session cookie on the next server request. It never requests another browser's Keychain item. Passwords import through `savePassword`. Addresses and cards stay hidden, with zero imported counts and explicit result text. The password fixture includes an Android credential. The check proves its rejection and the saved count for every supported web credential.
 
 Arc snapshots stay in `apps/browser/build-webkit/step-6-evidence/`. Real source data and detailed errors stay in scratch. The rows delete source copies even if stopping the test instance fails. Copy-removal output includes a directory listing. A usable real source also checks its strings against the patch with `grep -F -f`, without printing matching data.
+
+## Passwords
+
+Step 7 adds `pw-save`, `pw-fill`, `pw-update`, `pw-never`, `pw-two-accounts`, `pw-origin`, `pw-private`, `pw-export`, `pw-relaunch`, and `pw-at-rest`.
+
+Each instance uses the existing `FileKeyStore` abstraction. The launch helper sets `ARDIA_TEST=keychain=file,reauth=granted`. Set its `reauth` option to `denied` to test refused unlocks. Every isolated instance uses the file backend, even without the keychain switch. Background and isolated instances never evaluate LocalAuthentication. Background instances without an isolated directory refuse access to password keys.
+
+Normal instances use `KeychainKeyStore(service: "Ardia WebKit Passwords")`. `WebKitPasswordKeyStore.swift` links to the existing sync key-store source. Each data directory has one 256-bit key. The profile SQLite files hold AES-GCM ciphertext and public login metadata. Authentication binds ciphertext to its profile, origin, and username. A missing key never replaces a key for existing records. A nonblocking file lock serializes key creation across processes.
+
+Password detection and fill use the dedicated `ardia.passwords` content world and `ardiaPasswords` message handler. The ordinary `browser.page` helper cannot access that world. Test-only `webKit.devPasswordFocus` focuses a field there and exercises the native chooser. Its `subframe` flag selects an actual recorded WebKit frame. Its `probe` flag returns only whether the password field is empty. These hooks require an isolated test instance.
+
+Background menus write `password-menu.json`. A username in `password-menu.json.pick` selects that native menu action. The menu file contains usernames and enabled flags, never passwords. Foreground placement, physical typing, Touch ID, and ad hoc Keychain access remain person checks.
+
+Forms submit through the page world, with fixture values assigned before `requestSubmit()`. Fill checks inspect shared DOM values and authenticate against the fixture server. Fixtures cover two-step login, dynamic forms, signup, hidden fields, same-origin and cross-origin frames, and a hostile page. The hostile page records whether its own world can access either native handler or the isolated API. The server never records submitted passwords.
+
+`webKit.devPasswordExport` supplies a caller-chosen scratch path. Background export without a path cancels. The export row checks mode 0600, parses the Chrome CSV with the real importer, and verifies refused authentication writes nothing. `webKit.devPasswordBridge` verifies mutable input wiping and explicit unsupported password sync replies. These calls exist only in test instances.
+
+The native row runs `webkit-passwords.test.swift`: encryption round trip, tampering, authenticated metadata, key reuse/isolation/loss, exact origins, updates, exceptions, CSV permissions, symlink handling, hex parsing, and five actual WebKit form fixtures. `pw-at-rest` runs `grep -a -l -F` against SQLite and its sidecars. A match prints only the filename. No HTTPS fixture runs: the native origin cases and a stored HTTPS login presented to an HTTP page prove downgrade rejection without certificate dialogs.

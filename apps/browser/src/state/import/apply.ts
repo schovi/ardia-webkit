@@ -1,3 +1,5 @@
+import { savePassword } from "../../platform/passwords";
+import { originOfLogin } from "../site/savedPasswords";
 import { orWarn } from "../../lib/fallback";
 import {
   importModule,
@@ -250,6 +252,19 @@ export function importDiaProfile(profileId: string, profile: DiaTabsProfile, wha
   return n;
 }
 
+export async function importCredentials(profileId: string, credentials: ImportResult["credentials"], onFailed?: (kind: ImportKind) => void): Promise<number> {
+  if (isIncognitoProfile(profileId)) return 0;
+  let saved = 0;
+  for (const credential of credentials) {
+    try {
+      if (await savePassword(engineProfile(useBrowser.getState(), profileId), originOfLogin(credential.url), credential.username, credential.password)) saved++;
+      else onFailed?.("passwords");
+    } catch { onFailed?.("passwords"); }
+    finally { credential.password = ""; }
+  }
+  return saved;
+}
+
 export async function applyResult(
   profileId: string,
   result: ImportResult,
@@ -266,7 +281,7 @@ export async function applyResult(
   Object.assign(counts, await importNative(profileId, result.vaultToken, native, onFailed));
   if (result.tabs.length && !result.spaces.length) counts.tabs += importTabs(profileId, result.tabs, "Imported");
   if (result.favorites.length) counts.tabs += importTabs(profileId, result.favorites.map((t) => ({ ...t, pinned: true })), null, "tiles");
-  if (result.credentials.length) onFailed?.("passwords");
+  counts.passwords = await importCredentials(profileId, result.credentials, onFailed);
   return counts;
 }
 
@@ -277,7 +292,7 @@ export async function applySafari(profileId: string, data: SafariExport, cookies
   counts.history = importHistory(profileId, history);
   Object.assign(counts, await importNative(profileId, data.vaultToken, cookies ? ["cookies", "autofill"] : ["autofill"], onFailed));
   if (data.tabs.length) counts.tabs += importTabs(profileId, data.tabs, "Imported");
-  if (data.credentials.length) onFailed?.("passwords");
+  counts.passwords = await importCredentials(profileId, data.credentials, onFailed);
   return counts;
 }
 

@@ -28,6 +28,32 @@ public class WebKitModule: Module {
   ].merging(LaunchConfig.shared.testInstance ? testInstanceCalls : [:]) { call, _ in call })
 
   private static let testInstanceCalls: [String: CallHandler] = [
+    "devPasswordBridge": { args, reply in
+      if args.values["read"] as? Bool == true {
+        return ArdiaEngineBridge.callForSecretReply("ac_passwords_logins", profile: args.profile, timeout: 1) { reply.ok($0 ?? [:]) }
+      }
+      let bytes = NSMutableData(data: Data((try args.text("json")).utf8))
+      ArdiaEngineBridge.callWithSecret(try args.text("name"), profile: args.profile, args: bytes) { result in
+        let parsed = (try? JSONSerialization.jsonObject(with: Data(result.utf8))) as? [String: Any] ?? [:]
+        reply.ok(["result": parsed, "wiped": (bytes as Data).allSatisfy { $0 == 0 }])
+      }
+    },
+    "devPasswordExport": { args, reply in
+      ArdiaServices.exportPasswords(profile: args.profile, path: try args.text("path")) { reply.service($0, $1) }
+    },
+    "devPasswordFocus": { args, reply in
+      guard let tab = WebKitHub.shared.transfers.liveTab(try args.text("tabId")), let view = tab.webView else { return reply.ok(false) }
+      let subframe = args.values["subframe"] as? Bool == true
+      let frame = tab.passwordState.frames.last { $0.isMainFrame != subframe }
+      guard let frame else { return reply.ok(false) }
+      let probe = args.values["probe"] as? Bool == true
+      let script = probe ? "document.querySelector('input[type=password]').value.length === 0" : "document.querySelector('input[type=password]')?.focus(); window.__ardiaPasswords.request(true);"
+      view.evaluateJavaScript(script, in: frame, in: WebKitHub.passwordWorld) { result in
+        var empty = false
+        if case .success(let value) = result { empty = value as? Bool == true }
+        reply.ok(["eligible": tab.passwordOrigin(frame) != nil, "empty": empty])
+      }
+    },
     "devPermission": { args, reply in
       guard let tab = WebKitHub.shared.transfers.liveTab(try args.text("tabId")), let view = tab.webView else { return reply.ok(false) }
       let kind = try args.text("kind")

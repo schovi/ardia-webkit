@@ -221,6 +221,7 @@ public class SyncModule: Module {
     }
 
     AsyncFunction("savePassword") { (engineProfile: String, origin: String, username: String, sealed: String, replacing: Bool, promise: Promise) in
+      return promise.reject("unsupported", "Password sync is unsupported on WebKit")
       guard let keys = self.state.keys, let password = try? keys.openPassword(sealed, origin: origin, username: username) else {
         NSLog("[sync] a synced password didn't open for its login; not saving it")
         return promise.resolve(false)

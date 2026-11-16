@@ -6,6 +6,8 @@ FOUNDATION_EXPORT NSDictionary *WebKitProfileSettings(NSString *profile, NSStrin
 FOUNDATION_EXPORT void WebKitSetProfileSetting(NSString *profile, NSString *section, NSString *key, id _Nullable value);
 FOUNDATION_EXPORT BOOL WebKitDeleteProfileStore(NSString *profile);
 
+FOUNDATION_EXPORT void WebKitWipePasswordBuffer(NSMutableData *data);
+
 typedef void (^ArdiaCoreResult)(NSDictionary<NSString *, id> *result);
 typedef void (^ArdiaServiceReply)(id _Nullable value, NSString *_Nullable error);
 

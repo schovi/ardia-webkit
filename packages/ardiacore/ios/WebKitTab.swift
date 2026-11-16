@@ -28,7 +28,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
   private(set) var webView: WebKitWebView?
   private var observations: [NSKeyValueObservation] = []
   private var started = false
-  private(set) var closed = false { didSet { if closed { stopWatchingSight() } } }
+  private(set) var closed = false { didSet { if closed { stopWatchingSight(); passwordState.clear() } } }
   private var navigationQueued = false
   private var mediaFrames: [String: WKFrameInfo] {
     get { webView?.mediaFrames ?? [:] }
@@ -49,6 +49,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
   private var findCount = 0
   private var findActive = 0
   let blocked = WebKitBlockedCount()
+  let passwordState = WebKitTabPasswordState()
 
   override var isFlipped: Bool { true }
 
@@ -553,6 +554,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     setMuted(muted)
     updateErrorColor()
     queueNavigation()
+    DispatchQueue.main.async { [weak self] in self?.emitPendingPasswordPrompt() }
   }
 
   func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {

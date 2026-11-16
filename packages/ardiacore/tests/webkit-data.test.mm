@@ -14,6 +14,7 @@
 
 void CheckWebKitBookmarks(WebKitStore *store);
 extern "C" void ArdiaWebKitImportCookies(NSDictionary *, NSString *, void (^reply)(NSDictionary *)) { reply(@{@"imported": @0}); }
+extern "C" void ArdiaWebKitPasswordsCall(NSString *, NSString *, NSDictionary *, void (^reply)(NSDictionary *)) { reply(@{@"error": @"password adapter excluded from data-only executable"}); }
 static NSString *directory;
 static void Check(bool value, const char *name) {
   if (!value) { std::fprintf(stderr, "FAIL %s\n", name); std::exit(1); }

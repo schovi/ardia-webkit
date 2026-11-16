@@ -21,7 +21,7 @@ export function copyImportProfile(source, destination) {
   }
 }
 
-async function wizard(browser, source, kinds) {
+async function wizard(browser, source, kinds, expectedFailures = []) {
   await browser.evaluate('if(!globalThis.acImport)ac.runCommand({command:"importBrowserData"});return true;');
   await browser.until('return globalThis.acImport?.step==="choose";');
   assert.equal(await browser.evaluate(`return globalThis.acImport.select(${json(source)});`),true,"source not discovered");
@@ -30,13 +30,13 @@ async function wizard(browser, source, kinds) {
   await browser.evaluate('globalThis.acImport.next();return true;');
   const step = await browser.until('return ["profiles","unlock","done","progress"].includes(globalThis.acImport.step)&&globalThis.acImport.step;');
   if (step === "profiles") await browser.evaluate('globalThis.acImport.next();return true;');
-  if (kinds.includes("cookies")) {
+  if (kinds.includes("cookies") || kinds.includes("passwords")) {
     await browser.until('return globalThis.acImport.step==="unlock";');
     await browser.evaluate('globalThis.acImport.unlock();return true;');
   }
   await browser.until('return globalThis.acImport.step==="done";',120000);
   const result = await browser.evaluate('const g=globalThis.acImport;return {counts:g.counts,failures:g.failures.map(f=>f.kind)};');
-  assert.deepEqual(result.failures,[],"import kind failed");
+  assert.deepEqual(result.failures,expectedFailures,"import kind failed");
   return result.counts;
 }
 
@@ -136,18 +136,26 @@ export const importRows = {
     } finally {await browser.stop();}
   },
   "import-honest": async ({scratch,fixture,launches})=>{
-    const browser=new Browser(join(scratch,"honest-data"),fixture,launches,{importSourceDir:fixtures});
+    const browser=new Browser(join(scratch,"honest-data"),fixture,launches,{importSourceDir:fixtures,importSecret:"ardia-fixture-secret"});
     try {
       await browser.launch();
       await browser.evaluate('if(!globalThis.acImport)ac.runCommand({command:"importBrowserData"});return true;');
       await browser.until('return globalThis.acImport?.step==="choose";');
       await browser.evaluate('globalThis.acImport.select("chrome");return true;');
       const kinds=await browser.evaluate('return globalThis.acImport.kinds;');
-      assert.ok(!kinds.includes("passwords")&&!kinds.includes("autofill"));
-      const counts=await wizard(browser,"chrome",["bookmarks","passwords","autofill"]);
-      assert.equal(counts.passwords+counts.addresses+counts.cards,0);
+      assert.ok(kinds.includes("passwords")&&!kinds.includes("autofill"));
+      const expected=await browser.evaluate('const m=globalThis.expo.modules.ArdiaImport;return m.unlockBrowser("chrome",null).then(()=>m.importData("expected-passwords","chrome","Default",["passwords"],{})).then(JSON.parse).then(r=>{const web=r.credentials.filter(c=>/^https?:/.test(c.url));const result={supported:web.length,unsupported:r.credentials.length-web.length};r.credentials.forEach(c=>c.password="");if(r.vaultToken)m.discardImported(r.vaultToken);return result;});');
+      assert.equal(expected.unsupported,1);
+      await browser.evaluate('globalThis.expo.modules.ArdiaImport.forgetUnlockedKeys();return true;');
+      const counts=await wizard(browser,"chrome",["bookmarks","passwords","autofill"],["passwords"]);
+      assert.equal(counts.passwords,expected.supported);
+      assert.equal(counts.addresses+counts.cards,0);
+      assert.equal((await browser.evaluate('return ac.engine.call("passwords.list",{profile:""});')).passwords.length,counts.passwords);
+
       assert.ok(await browser.evaluate('return globalThis.acPerf.findFibers("Text").some(f=>typeof f.memoizedProps.children==="string"&&f.memoizedProps.children.includes("were not imported"));'));
-      return "fixture; passwords=0, addresses=0, cards=0; selection hidden; result says not imported";
+      await browser.restart();
+      assert.equal((await browser.evaluate('return ac.engine.call("passwords.list",{profile:""});')).passwords.length,counts.passwords);
+      return `fixture; passwords=${counts.passwords} written through savePassword and retained after relaunch; Android credential rejected and reported failed; addresses=0, cards=0; autofill hidden and reported not imported`;
     } finally {await browser.stop();}
   },
 };

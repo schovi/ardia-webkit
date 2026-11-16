@@ -75,7 +75,9 @@ extension WebKitTab: PageTab {
     webView?.evaluateJavaScript("window.ardiaPageColor = \(Self.jsString(color)); window.dispatchEvent(new Event('ardiapagecolor'))") { _, _ in }
   }
 
-  func resolvePasswordPrompt(_ action: String, username: String?, password: String?) {}
+  func resolvePasswordPrompt(_ action: String, username: String?, password: String?) {
+    resolveWebKitPasswordPrompt(action, username: username, password: password)
+  }
 
   func resolveAutofillPrompt(_ promptId: Int, action: String) {}
 

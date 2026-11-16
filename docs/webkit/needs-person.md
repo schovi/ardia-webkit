@@ -42,3 +42,15 @@ Camera and microphone checks invoke the real WKUIDelegate decision callback usin
 | Drag a bookmark within the bar, into a folder, and within that folder | The drop changes order or parent. Relaunch retains the result. Automated checks use the same `moveBookmark` action. |
 | Add a page with Cmd+D, edit its name and folder, then press Done | The dialog accepts physical input and the bar shows the saved bookmark. Automated checks drive the command and rendered Done button. |
 | Export bookmarks in a foreground scratch instance | The save panel writes Netscape HTML at the chosen scratch path. Cancel writes nothing. Background checks bypass the panel. |
+
+
+## Step 7 passwords
+
+| Action | Expected result |
+|---|---|
+| Type a fixture login by hand, submit, and accept Save or Update | The unchanged prompt appears after navigation. Relaunch retains the accepted login. |
+| Focus a field with two saved accounts, including in a same-origin iframe and with page zoom changed | The native menu appears under the field. Selecting an account fills only that login. |
+| Unlock, reveal, edit, and export passwords in a normal foreground instance | Touch ID or the login password gates disclosure. Cancel discloses nothing. The save panel uses the chosen scratch path. |
+| Access the app-owned password key after installing a new ad hoc build | macOS may ask once to allow access for that build. Stable signing remains the owner's prerequisite for removing this prompt. |
+
+Automated checks use only the file keychain and the `reauth` test switch. They never evaluate LocalAuthentication or request real Keychain access. macOS Passwords autofill inside a third-party WKWebView remains unchecked.

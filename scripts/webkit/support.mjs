@@ -72,7 +72,7 @@ export class Browser {
     this.started = Date.now();
     const launched = spawnSync("open", [...(this.options.foreground ? ["-n"] : ["-g", "-n"]), "--stdout", log, "--stderr", log,
       ...(this.options.foreground ? [] : ["--env", "ARDIA_BACKGROUND=1"]), "--env", `ARDIA_DATA_DIR=${this.data}`,
-      "--env", `ARDIA_TEST=keychain=file${this.options.observe ? ",networkRequests" : ""}${this.options.importSecret ? ",importSecret=" + this.options.importSecret : ""}`, "--env", `ARDIA_INSTANCE=downloadsDir=${join(this.data, "downloads")},syncFolder=${join(this.data, "sync")},sharedFolders=${join(this.data, "shared")}${this.options.importSourceDir ? ",importSourceDir=" + this.options.importSourceDir : ""}`, APP], { encoding: "utf8", timeout: 10000, env: Object.fromEntries(Object.entries(process.env).filter(([key]) => key !== "ARDIA_BACKGROUND")) });
+      "--env", `ARDIA_TEST=keychain=file,reauth=${this.options.reauth ?? "granted"}${this.options.observe ? ",networkRequests" : ""}${this.options.importSecret ? ",importSecret=" + this.options.importSecret : ""}`, "--env", `ARDIA_INSTANCE=downloadsDir=${join(this.data, "downloads")},syncFolder=${join(this.data, "sync")},sharedFolders=${join(this.data, "shared")}${this.options.importSourceDir ? ",importSourceDir=" + this.options.importSourceDir : ""}`, APP], { encoding: "utf8", timeout: 10000, env: Object.fromEntries(Object.entries(process.env).filter(([key]) => key !== "ARDIA_BACKGROUND")) });
     assert.equal(launched.status, 0, launched.stderr);
     let pid;
     for (const end = Date.now() + 10000; Date.now() < end && !pid; await sleep(100)) {
