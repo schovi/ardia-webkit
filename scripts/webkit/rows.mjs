@@ -1,3 +1,4 @@
+import { extensionRows } from "./extension-rows.mjs";
 import { passwordNative, passwordRows } from "./password-rows.mjs";
 import { importRows } from "./import-rows.mjs";
 import { bookmarkRows } from "./bookmark-rows.mjs";
@@ -50,6 +51,7 @@ async function terminate(browser) {
 }
 
 export const rows = {
+  ...extensionRows,
   ...passwordRows,
   ...importRows,
   ...bookmarkRows,
@@ -338,8 +340,11 @@ export const rows = {
     await run("xcrun", ["clang++", "-std=c++20", "-fobjc-arc", "-fblocks", "-Wno-incomplete-implementation", "-framework", "AppKit", "-framework", "WebKit", "-framework", "QuartzCore", "-framework", "Security", "-lsqlite3",
       "packages/ardiacore/tests/webkit-window.test.mm", "packages/ardiacore/ios/ArdiaLaunchConfig.mm", ...["Host", "Store", "Bookmarks", "Network", "Services"].map(name => `packages/ardiacore/ios/webkit/${name}.mm`), "-o", windowExecutable]);
     const windowResult = await run(windowExecutable, [], {env: {ARDIA_DATA_DIR:scratch,ARDIA_BACKGROUND:"1"}});
+    const extensionExecutable = join(scratch, "extension-check");
+    await run("xcrun", ["swiftc", "packages/ardiacore/tests/webkit-extensions.test.swift", "packages/ardiacore/ios/WebKitExtensionArchive.swift", "-o", extensionExecutable]);
+    const extensionResult = await run(extensionExecutable, []);
     const passwords = await passwordNative(scratch);
-    return passwords+"; "+(await run(executable, [scratch], { env: { ARDIA_DATA_DIR: scratch, ARDIA_TEST: "networkRequests" } })).text.trim()+"; "+windowResult.text.trim()+"; "+pageResult.text.trim();
+    return extensionResult.text.trim()+"; "+passwords+"; "+(await run(executable, [scratch], { env: { ARDIA_DATA_DIR: scratch, ARDIA_TEST: "networkRequests" } })).text.trim()+"; "+windowResult.text.trim()+"; "+pageResult.text.trim();
   },
   js: async ({ scratch }) => {
     await run(process.execPath, ["--test", "scripts/webkit/check.test.mjs"]);

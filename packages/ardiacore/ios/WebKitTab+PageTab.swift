@@ -6,7 +6,6 @@ extension WebKitTab: PageTab {
 
   var temporary: Bool { get { false } set {} }
   var temporarySource: String? { get { nil } set {} }
-  var extensionHost: String? { get { nil } set {} }
   var warm: Bool { get { false } set {} }
   var neighbour: Bool { get { false } set {} }
   var shownURL: String? { get { nil } set {} }
@@ -81,7 +80,10 @@ extension WebKitTab: PageTab {
 
   func resolveAutofillPrompt(_ promptId: Int, action: String) {}
 
-  func executeExtensionAction(_ extensionId: String) -> String? { nil }
+  func executeExtensionAction(_ extensionId: String) -> String? {
+    guard #available(macOS 15.4, *), !WebKitStores.isPrivate(profile) else { return nil }
+    return WebKitExtensions.shared(profile).execute(self, id: extensionId)
+  }
 
   func resolveDisplayMedia(_ requestId: String, sourceId: String?, audio: Bool) {}
 

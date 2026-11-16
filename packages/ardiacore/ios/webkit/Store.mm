@@ -71,7 +71,7 @@ NSString *FileName(NSString *profile) {
       throw std::runtime_error(error.localizedDescription.UTF8String);
     NSString *path = [directory stringByAppendingPathComponent:FileName(profile)];
     if (sqlite3_open(path.fileSystemRepresentation, &_database) != SQLITE_OK) throw std::runtime_error("cannot open the profile store");
-    Execute(_database, "PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=3000;"
+    Execute(_database, "PRAGMA busy_timeout=3000; PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;"
       "CREATE TABLE IF NOT EXISTS pages(url TEXT PRIMARY KEY,title TEXT NOT NULL,visits INTEGER NOT NULL,last REAL NOT NULL);"
       "CREATE INDEX IF NOT EXISTS pages_last ON pages(last DESC);"
       "CREATE TABLE IF NOT EXISTS visits(url TEXT REFERENCES pages(url) ON DELETE CASCADE,at REAL,PRIMARY KEY(url,at));"
@@ -283,32 +283,43 @@ static NSMutableDictionary *PrivateSettings(void) {
   return values;
 }
 NSDictionary *WebKitProfileSettings(NSString *profile, NSString *section) {
-  if (WebKitPrivateProfile(profile)) return [PrivateSettings()[[@"incognito@" stringByAppendingString:[ArdiaHost baseProfileOf:profile]]][section] copy] ?: @{};
-  try {
-    WebKitStore *store = [[WebKitStore alloc] initWithDirectory:[ArdiaHost.dataDirectory stringByAppendingPathComponent:@"Stores"] profile:profile];
-    return [store call:@"settings.read" args:@{@"section": section}];
-  } catch (const std::exception &error) { NSLog(@"[webkit] settings read failed: %s", error.what()); return @{}; }
-}
-void WebKitSetProfileSetting(NSString *profile, NSString *section, NSString *key, id value) {
-  NSString *notificationProfile = profile;
-  if (WebKitPrivateProfile(profile)) {
-    profile = [@"incognito@" stringByAppendingString:[ArdiaHost baseProfileOf:profile]];
-    if (!PrivateSettings()[profile]) PrivateSettings()[profile] = [NSMutableDictionary dictionary];
-    if (!PrivateSettings()[profile][section]) PrivateSettings()[profile][section] = [NSMutableDictionary dictionary];
-    if (value) PrivateSettings()[profile][section][key] = value;
-    else [PrivateSettings()[profile][section] removeObjectForKey:key];
-  } else {
+  __block NSDictionary *result;
+  dispatch_sync(StoreQueue(), ^{
+    if (WebKitPrivateProfile(profile)) {
+      result = [PrivateSettings()[[@"incognito@" stringByAppendingString:[ArdiaHost baseProfileOf:profile]]][section] copy] ?: @{};
+      return;
+    }
     try {
       WebKitStore *store = [[WebKitStore alloc] initWithDirectory:[ArdiaHost.dataDirectory stringByAppendingPathComponent:@"Stores"] profile:profile];
-      [store call:@"settings.write" args:@{@"section": section, @"key": key, @"value": value ?: NSNull.null}];
-    } catch (const std::exception &error) { NSLog(@"[webkit] settings write failed: %s", error.what()); }
-  }
-  [NSNotificationCenter.defaultCenter postNotificationName:@"WebKitProfileSettingsChanged" object:notificationProfile userInfo:@{@"section": section, @"key": key}];
+      result = [store call:@"settings.read" args:@{@"section": section}];
+    } catch (const std::exception &error) { NSLog(@"[webkit] settings read failed: %s", error.what()); result = @{}; }
+  });
+  return result;
+}
+void WebKitSetProfileSetting(NSString *profile, NSString *section, NSString *key, id value) {
+  dispatch_sync(StoreQueue(), ^{
+    if (WebKitPrivateProfile(profile)) {
+      NSString *privateProfile = [@"incognito@" stringByAppendingString:[ArdiaHost baseProfileOf:profile]];
+      if (!PrivateSettings()[privateProfile]) PrivateSettings()[privateProfile] = [NSMutableDictionary dictionary];
+      if (!PrivateSettings()[privateProfile][section]) PrivateSettings()[privateProfile][section] = [NSMutableDictionary dictionary];
+      if (value) PrivateSettings()[privateProfile][section][key] = value;
+      else [PrivateSettings()[privateProfile][section] removeObjectForKey:key];
+    } else {
+      try {
+        WebKitStore *store = [[WebKitStore alloc] initWithDirectory:[ArdiaHost.dataDirectory stringByAppendingPathComponent:@"Stores"] profile:profile];
+        [store call:@"settings.write" args:@{@"section": section, @"key": key, @"value": value ?: NSNull.null}];
+      } catch (const std::exception &error) { NSLog(@"[webkit] settings write failed: %s", error.what()); }
+    }
+  });
+  [NSNotificationCenter.defaultCenter postNotificationName:@"WebKitProfileSettingsChanged" object:profile userInfo:@{@"section": section, @"key": key}];
 }
 BOOL WebKitDeleteProfileStore(NSString *profile) {
-  if (WebKitPrivateProfile(profile)) { [PrivateSettings() removeObjectForKey:[@"incognito@" stringByAppendingString:[ArdiaHost baseProfileOf:profile]]]; return YES; }
   __block BOOL removed = YES;
   dispatch_sync(StoreQueue(), ^{
+    if (WebKitPrivateProfile(profile)) {
+      [PrivateSettings() removeObjectForKey:[@"incognito@" stringByAppendingString:[ArdiaHost baseProfileOf:profile]]];
+      return;
+    }
     NSString *path = [[ArdiaHost.dataDirectory stringByAppendingPathComponent:@"Stores"] stringByAppendingPathComponent:FileName(profile)];
     for (NSString *suffix in @[@"", @"-wal", @"-shm"]) {
       NSString *file = [path stringByAppendingString:suffix];

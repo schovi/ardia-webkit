@@ -54,3 +54,14 @@ Camera and microphone checks invoke the real WKUIDelegate decision callback usin
 | Access the app-owned password key after installing a new ad hoc build | macOS may ask once to allow access for that build. Stable signing remains the owner's prerequisite for removing this prompt. |
 
 Automated checks use only the file keychain and the `reauth` test switch. They never evaluate LocalAuthentication or request real Keychain access. macOS Passwords autofill inside a third-party WKWebView remains unchecked.
+
+## Step 8 extensions
+
+| Action | Expected result |
+|---|---|
+| Install `scripts/webkit/fixtures/extension-content` from Settings in a scratch profile | One permissions prompt appears. Cancel installs nothing. Accept lists the managed copy. |
+| Pin the fixture and physically click its toolbar action | The icon and badge `8` appear. The popup opens below the button and accepts focus. |
+| Click outside the popup, press Esc, and switch tabs | The popup closes. A later click opens a fresh popup. |
+| Disable, enable, reload, and remove the fixture through Settings | The displayed state matches injection. Relaunch retains the enabled state and permissions. |
+
+The foreground action row now gets a key window. Native mouse events close and reopen the popup. DOM, dimensions, opacity, and a snapshot prove visible content. Physical input and focus still need a person. Bitwarden 2026.10.2 fails in its background worker; its initial popup DOM read was empty.

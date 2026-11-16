@@ -11,10 +11,14 @@
 #include <cstdio>
 #include <cstdlib>
 #include <unistd.h>
+#include <sqlite3.h>
+#include <stdexcept>
 
 void CheckWebKitBookmarks(WebKitStore *store);
 extern "C" void ArdiaWebKitImportCookies(NSDictionary *, NSString *, void (^reply)(NSDictionary *)) { reply(@{@"imported": @0}); }
 extern "C" void ArdiaWebKitPasswordsCall(NSString *, NSString *, NSDictionary *, void (^reply)(NSDictionary *)) { reply(@{@"error": @"password adapter excluded from data-only executable"}); }
+static BOOL watchedExtensions = NO;
+extern "C" void ArdiaWebKitExtensionsWatch(NSString *) { watchedExtensions = YES; }
 static NSString *directory;
 static void Check(bool value, const char *name) {
   if (!value) { std::fprintf(stderr, "FAIL %s\n", name); std::exit(1); }
@@ -40,10 +44,53 @@ extern "C" NSDictionary *ArdiaWebKitContentBlockerState(void) { return @{}; }
 @implementation TestSettingsView
 @end
 
+static void CheckStoreOpenWaitsForWriter(NSString *scratch) {
+  NSString *folder = [scratch stringByAppendingPathComponent:NSUUID.UUID.UUIDString];
+  [NSFileManager.defaultManager createDirectoryAtPath:folder withIntermediateDirectories:YES attributes:nil error:nil];
+  sqlite3 *database;
+  Check(sqlite3_open([[folder stringByAppendingPathComponent:@"default.sqlite3"] fileSystemRepresentation], &database) == SQLITE_OK, "open lock fixture");
+  Check(sqlite3_exec(database, "BEGIN EXCLUSIVE; CREATE TABLE lock_fixture(value);", nullptr, nullptr, nullptr) == SQLITE_OK, "hold startup writer");
+  dispatch_group_t group = dispatch_group_create();
+  dispatch_semaphore_t started = dispatch_semaphore_create(0);
+  __block BOOL opened = NO;
+  dispatch_group_async(group, dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
+    dispatch_semaphore_signal(started);
+    try { WebKitStore *store = [[WebKitStore alloc] initWithDirectory:folder profile:@""]; opened = store != nil; }
+    catch (const std::exception &) {}
+  });
+  Check(dispatch_semaphore_wait(started, dispatch_time(DISPATCH_TIME_NOW, 5*NSEC_PER_SEC)) == 0, "startup reader started");
+  usleep(150000);
+  sqlite3_exec(database, "COMMIT", nullptr, nullptr, nullptr);
+  sqlite3_close(database);
+  Check(dispatch_group_wait(group, dispatch_time(DISPATCH_TIME_NOW, 5*NSEC_PER_SEC)) == 0, "startup reader finished");
+  [NSFileManager.defaultManager removeItemAtPath:folder error:nil];
+  Check(opened, "profile opening waits for a concurrent startup writer before enabling WAL");
+}
+
+static void CheckConcurrentProfileSettings(void) {
+  for (int attempt = 0; attempt < 5; attempt++) {
+    NSString *profile = NSUUID.UUID.UUIDString;
+    dispatch_group_t writers = dispatch_group_create();
+    dispatch_semaphore_t start = dispatch_semaphore_create(0);
+    for (int index = 0; index < 8; index++) {
+      dispatch_group_async(writers, dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
+        dispatch_semaphore_wait(start, dispatch_time(DISPATCH_TIME_NOW, 5*NSEC_PER_SEC));
+        WebKitSetProfileSetting(profile, @"extensions", [NSString stringWithFormat:@"fixture-%d", index], @{@"enabled": @YES});
+      });
+    }
+    for (int index = 0; index < 8; index++) dispatch_semaphore_signal(start);
+    Check(dispatch_group_wait(writers, dispatch_time(DISPATCH_TIME_NOW, 10*NSEC_PER_SEC)) == 0, "concurrent settings writers finished");
+    Check(WebKitProfileSettings(profile, @"extensions").count == 8, "concurrent extension settings writes all persist");
+    Check(WebKitDeleteProfileStore(profile), "concurrent extension settings cleanup");
+  }
+}
+
 int main(int argc, const char **argv) {
   @autoreleasepool {
     Check(argc == 2, "scratch directory argument");
     directory = @(argv[1]);
+    CheckStoreOpenWaitsForWriter(directory);
+    CheckConcurrentProfileSettings();
     __block BOOL emptyExtensions = NO;
     [ArdiaServices listExtensions:@"" reply:^(id result, NSString *error) { emptyExtensions = !error && [result[@"extensions"] isEqual:@[]]; }];
     Check(emptyExtensions, "extensions list has a correctly shaped empty result");
@@ -52,9 +99,18 @@ int main(int argc, const char **argv) {
       [ArdiaEngineBridge call:name profile:@"" args:@"{}" completion:^(NSString *json) {
         result = [NSJSONSerialization JSONObjectWithData:[json dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
       }];
-      Check(result != nil, "placeholder engine calls return JSON objects");
-      if ([name isEqual:@"ac_extensions_load_health"]) Check([result[@"enabled"] intValue] == 0 && [result[@"disabled"] isKindOfClass:NSDictionary.class], "extension health placeholder shape");
+      Check(result != nil, "extension engine calls return JSON objects");
+      if ([name isEqual:@"ac_extensions_load_health"]) Check([result[@"enabled"] intValue] == 0 && [result[@"disabled"] isKindOfClass:NSDictionary.class], "empty extension health shape");
     }
+    Check(watchedExtensions, "extension watch reaches native adapter");
+    WebKitSetProfileSetting(@"extension-test", @"extensions", @"fixture", @{@"id": @"fixture", @"enabled": @YES});
+    WebKitSetProfileSetting(@"extension-test", @"extensions", @"disabled", @{@"id": @"disabled", @"enabled": @NO, @"disabledReason": @"unsupported"});
+    [ArdiaServices listExtensions:@"extension-test" reply:^(id result, NSString *error) { Check(!error && [result[@"extensions"] count] == 2, "extensions list reads persisted profile records"); }];
+    [ArdiaEngineBridge call:@"ac_extensions_load_health" profile:@"extension-test" args:@"{}" completion:^(NSString *json) {
+      NSDictionary *health = [NSJSONSerialization JSONObjectWithData:[json dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
+      Check([health[@"enabled"] intValue] == 1 && [health[@"disabled"][@"unsupported"] intValue] == 1, "extension health counts enabled and actual disable reason");
+    }];
+    Check(WebKitDeleteProfileStore(@"extension-test"), "extension settings test cleanup");
     NSDictionary *emptyBlocker = WebKitContentBlockerSettings(@{}, @{});
     Check([emptyBlocker[@"lists"] count] == 0 && [emptyBlocker[@"allowedHosts"] count] == 0, "empty blocker arrays");
     Check([emptyBlocker[@"stats"] isKindOfClass:NSDictionary.class] && ![emptyBlocker[@"stats"][@"ready"] boolValue], "empty blocker stats shape");

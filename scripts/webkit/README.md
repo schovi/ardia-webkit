@@ -177,3 +177,17 @@ Forms submit through the page world, with fixture values assigned before `reques
 `webKit.devPasswordExport` supplies a caller-chosen scratch path. Background export without a path cancels. The export row checks mode 0600, parses the Chrome CSV with the real importer, and verifies refused authentication writes nothing. `webKit.devPasswordBridge` verifies mutable input wiping and explicit unsupported password sync replies. These calls exist only in test instances.
 
 The native row runs `webkit-passwords.test.swift`: encryption round trip, tampering, authenticated metadata, key reuse/isolation/loss, exact origins, updates, exceptions, CSV permissions, symlink handling, hex parsing, and five actual WebKit form fixtures. `pw-at-rest` runs `grep -a -l -F` against SQLite and its sidecars. A match prints only the filename. No HTTPS fixture runs: the native origin cases and a stored HTTPS login presented to an HTTP page prove downgrade rejection without certificate dialogs.
+
+## Extensions
+
+Step 8 adds `ext-gate`, `ext-install-folder`, `ext-install-crx`, `ext-toggle`, `ext-action`, `ext-tabs-api`, and `ext-permissions`.
+
+The gate loads the committed Manifest V3 fixture through a temporary controller inside a hidden app instance. It checks shared DOM changes, a service-worker reply, and the framework-owned popup attached to an app-owned view. The install prompt uses `extensions.installPrompt` and the existing `extensions.resolveInstallPrompt` call. The gate grants nothing before acceptance.
+
+The production rows install managed copies under `<data>/WebKit/Extensions/<profile UUID>/<Chrome id>`. SQLite profile settings hold metadata, enabled state, and accepted permissions. Background install prompts log to `<data>/WebKit/extension-install-prompt.json`. Declining removes the pending copy. Private windows attach no extension controller. File-page access stays blocked. Extension sync returns `ready: false` or `state: refused`, with `unsupported: true`.
+
+The action row runs in foreground mode. It invokes the mounted toolbar handler, then uses native in-app mouse events to close and reopen the popup. It requires an active app, a key and visible window, positive popup dimensions, and visible ancestor opacity. The existing popup UI hosts `WKWebExtension.Action.popupWebView`. Test-only `webKit.devExtensionPopup` checks attachment and reads its DOM without requiring a key window. `extension-content` checks that its content world cannot access `ardiaPasswords` or `__ardiaPasswords`. `extension-tabs` checks real query, creation, navigation, and update events.
+
+The native row checks CRX3 bounds and identifiers, rejected symbolic links, and rejected ZIP traversal. CRX extraction uses the system Python `zipfile` module, with a 30-second process deadline. It validates archive entries before extraction. CRX signatures are not authenticated; local installation requires explicit consent. No Chrome Web Store installation or automatic extension updates exist.
+
+`apps/browser/build-webkit/step-8-evidence/` retains Settings and popup snapshots. Physical input, popup focus, Esc dismissal, and appearance remain person checks. Native mouse dismissal and reopening are automated. The two real release archives are manual compatibility probes, not dependencies of the repeatable check.

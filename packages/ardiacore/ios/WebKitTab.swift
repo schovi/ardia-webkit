@@ -18,6 +18,10 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
   var pageBackgroundColor: NSColor? { didSet { updatePageColors() } }
   var contentsBackgroundColor: NSColor? { didSet { updatePageColors() } }
   var pageColor: String? { didSet { updateErrorColor() } }
+  var extensionHost: String?
+  var extensionPopup: WKWebView?
+  var extensionPopupObservation: NSKeyValueObservation?
+  var extensionPopupClose: (() -> Void)?
   var standalone = false
   var blockedPopups: [String: (request: URLRequest, origin: String)] = [:]
   var authenticationReply: ((URLSession.AuthChallengeDisposition, URLCredential?) -> Void)?
@@ -56,6 +60,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
   override func setFrameSize(_ newSize: NSSize) {
     super.setFrameSize(newSize)
     webView?.frame = bounds
+    extensionPopup?.frame = bounds
   }
 
   override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); watchSight() }
@@ -67,6 +72,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
   func start() {
     guard !started else { return }
     started = true
+    if startExtensionPopup() { return }
     begin()
   }
 
@@ -97,6 +103,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
   func relinquish() -> WebKitWebView? {
     guard !closed, let view = webView else { return nil }
     closed = true
+    closeExtensionPopup()
     resolveHTTPAuth(username: nil, password: nil)
     observations = []
     WebKitHub.shared.permissions.drop(browserId: browserId)
@@ -137,6 +144,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     observe(view)
     WebKitHub.shared.permissions.reconcileCapture(view, profile: profile)
     updateSight()
+    if #available(macOS 15.4, *), !WebKitStores.isPrivate(profile) { WebKitExtensions.shared(profile).opened(self) }
   }
 
   private func observe(_ view: WKWebView) {
@@ -165,6 +173,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
   func close() {
     guard !closed else { return }
     closed = true
+    closeExtensionPopup()
     resolveHTTPAuth(username: nil, password: nil)
     observations = []
     WebKitHub.shared.permissions.drop(browserId: browserId)
@@ -194,6 +203,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
   }
 
   private func emitNavigation() {
+    if #available(macOS 15.4, *), !WebKitStores.isPrivate(profile) { WebKitExtensions.shared(profile).updated(self) }
     guard let view = webView else { return }
     let theme = view.themeColor.flatMap(Self.hex)
     var navigation: [String: Any] = [
@@ -355,18 +365,6 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
 
   func runPageCommand(_ name: String) {
     if name == "systemPrint" { print() }
-  }
-
-  func executeJavaScript(_ code: String) {
-    webView?.evaluateJavaScript(code, in: nil, in: .page) { _ in }
-  }
-
-  func evaluate(_ code: String, completion: @escaping (String?) -> Void) {
-    guard let view = webView else { return completion(nil) }
-    let body = "return await new Promise((resolve) => { const post = (kind, json) => { if (kind === \"result\") resolve(json); }; setTimeout(() => resolve(null), 3000); try {\n\(code)\n} catch (e) { resolve(null); } });"
-    view.callAsyncJavaScript(body, arguments: [:], in: nil, in: WebKitHub.world) { result in
-      if case .success(let value) = result { completion(value as? String) } else { completion(nil) }
-    }
   }
 
   func capturePicture(_ scale: Double, completion: @escaping ([String: Any]?) -> Void) {

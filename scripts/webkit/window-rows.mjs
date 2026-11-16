@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { RowOutcome } from "./report.mjs";
 import { BUILD, sleep } from "./support.mjs";
 
-export const foregroundRows = new Set(["type-page", "type-omnibox", "keys-page-focus", "full-screen"]);
+export const foregroundRows = new Set(["ext-action", "type-page", "type-omnibox", "keys-page-focus", "full-screen"]);
 
 const evidence = join(BUILD, "step-2-evidence");
 async function native(browser, action) {

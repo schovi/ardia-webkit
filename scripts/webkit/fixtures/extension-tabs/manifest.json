@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "Ardia tabs fixture",
+  "version": "1.0",
+  "description": "Real tabs API fixture",
+  "key": "YXJkaWEtdGFicy1maXh0dXJl",
+  "permissions": ["tabs"],
+  "content_scripts": [{"matches": ["http://127.0.0.1/*"], "js": ["content.js"]}],
+  "background": {"service_worker": "background.js"},
+  "action": {"default_popup": "popup.html"}
+}

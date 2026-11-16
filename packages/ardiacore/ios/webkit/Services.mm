@@ -14,7 +14,7 @@ extern "C" NSDictionary *ArdiaWebKitContentBlockerState(void);
   });
 }
 + (void)listExtensions:(NSString *)profile reply:(ArdiaServiceReply)reply {
-  reply(@{@"extensions": @[]}, nil);
+  reply(@{@"extensions": WebKitPrivateProfile(profile) ? @[] : WebKitProfileSettings(profile, @"extensions").allValues}, nil);
 }
 + (void)searchEngineList:(NSString *)profile reply:(ArdiaServiceReply)reply {
   reply(@{@"list": @{@"engines": @[]}}, nil);

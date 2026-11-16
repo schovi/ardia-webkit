@@ -15,6 +15,10 @@ public class ExtensionsModule: Module {
   }
 
   static func chooseFolder(_ args: CallArgs, _ reply: CallReply) {
+    if LaunchConfig.shared.background {
+      NSLog("[webkit] extension folder panel (background mode, not shown)")
+      return reply.ok()
+    }
     let panel = NSOpenPanel()
     panel.canChooseFiles = false
     panel.canChooseDirectories = true
@@ -58,5 +62,5 @@ public class ExtensionsModule: Module {
     "syncState": EngineCall.passing("ac_extensions_sync_state"),
     "syncApply": EngineCall.passing("ac_extensions_sync_apply"),
     "loadHealth": EngineCall.passing("ac_extensions_load_health"),
-  ])
+  ].merging(WebKitExtensionCalls.handlers) { _, webkit in webkit })
 }

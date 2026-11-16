@@ -5,6 +5,8 @@
 #import "Network.h"
 #import "../ArdiaRuntime.h"
 
+extern "C" void ArdiaWebKitExtensionsWatch(NSString *);
+
 extern "C" void ArdiaWebKitPasswordsCall(NSString *, NSString *, NSDictionary *, void (^)(NSDictionary *));
 
 extern "C" void ArdiaWebKitImportCookies(NSDictionary *, NSString *, void (^)(NSDictionary *));
@@ -59,11 +61,22 @@ extern "C" void ArdiaWebKitImportCookies(NSDictionary *, NSString *, void (^)(NS
     if (!settings[@"askWhereToSave"]) settings[@"askWhereToSave"] = @NO;
     return answer(settings);
   }
-  static NSDictionary *defaults = @{
-    @"ac_extensions_watch_actions": @{},
-    @"ac_extensions_load_health": @{@"dropped": @0, @"enabled": @0, @"disabled": @{}}
-  };
-  if (defaults[name]) return answer(defaults[name]);
+  if ([name isEqual:@"ac_extensions_watch_actions"]) {
+    ArdiaWebKitExtensionsWatch(profile);
+    return answer(@{});
+  }
+  if ([name isEqual:@"ac_extensions_load_health"]) {
+    NSUInteger enabled = 0;
+    NSMutableDictionary *disabled = [NSMutableDictionary dictionary];
+    for (NSDictionary *record in WebKitProfileSettings(profile, @"extensions").allValues) {
+      if ([record[@"enabled"] boolValue]) enabled++;
+      else {
+        NSString *reason = record[@"disabledReason"] ?: @"user";
+        disabled[reason] = @([disabled[reason] unsignedIntegerValue] + 1);
+      }
+    }
+    return answer(@{@"dropped": @0, @"enabled": @(enabled), @"disabled": disabled});
+  }
   if ([name hasPrefix:@"ac_bookmarks_"]) return WebKitStoreCall(name, profile, values, answer);
   if ([@[@"ac_history_query", @"ac_history_add", @"ac_history_import", @"ac_history_delete_urls", @"ac_history_watch", @"ac_favicons_get", @"ac_favicons_set"] containsObject:name]) {
     return WebKitStoreCall(name, profile, values, answer);

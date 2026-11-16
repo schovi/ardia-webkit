@@ -248,7 +248,6 @@
            reply:(ArdiaServiceReply)reply { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (reply) reply({}, {}); }
 + (void)deleteAutofillEntry:(NSString *)entryId profile:(NSString *)profile reply:(ArdiaServiceReply)reply { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (reply) reply({}, {}); }
 + (void)revealCardNumber:(NSString *)cardId profile:(NSString *)profile reply:(ArdiaServiceReply)reply { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (reply) reply({}, {}); }
-+ (NSDictionary<NSString *, id> *)inspectUnpacked:(NSString *)path { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
 + (void)installExtension:(NSString *)path profile:(NSString *)profile reply:(ArdiaServiceReply)reply { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (reply) reply({}, {}); }
 + (void)installCrx:(NSString *)path profile:(NSString *)profile reply:(ArdiaServiceReply)reply { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (reply) reply({}, {}); }
 + (void)setExtension:(NSString *)extensionId enabled:(BOOL)enabled profile:(NSString *)profile reply:(ArdiaServiceReply)reply { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (reply) reply({}, {}); }

@@ -28,6 +28,41 @@ public class WebKitModule: Module {
   ].merging(LaunchConfig.shared.testInstance ? testInstanceCalls : [:]) { call, _ in call })
 
   private static let testInstanceCalls: [String: CallHandler] = [
+    "devExtensionPopup": { args, reply in
+      func popup(_ view: NSView) -> WKWebView? {
+        if let tab = view as? WebKitTab, let popup = tab.extensionPopup { return popup }
+        for child in view.subviews { if let found = popup(child) { return found } }
+        return nil
+      }
+      guard let view = NSApp.windows.compactMap(\.contentView).compactMap({ popup($0) }).first else { return reply.ok(["attached": false]) }
+      var opacity = 1.0
+      var ancestor: NSView? = view
+      while let current = ancestor {
+        opacity = min(opacity, Double(current.alphaValue), Double(current.layer?.presentation()?.opacity ?? current.layer?.opacity ?? 1))
+        ancestor = current.superview
+      }
+      let visibleOpacity = opacity
+      let popupTab = view.superview as? WebKitTab
+      let popupEvents = Array((popupTab?.superview as? PageTabHost)?.pageEvents ?? [])
+      view.callAsyncJavaScript(try args.optionalText("script") ?? "return document.body.innerText", arguments: [:], in: nil, in: .page) { result in
+        switch result {
+        case .success(let value): reply.ok(["attached": view.superview != nil, "events": popupEvents, "delegate": popupTab?.delegate == nil ? "missing" : "present", "opacity": visibleOpacity, "visible": !view.isHiddenOrHasHiddenAncestor, "windowVisible": view.window?.isVisible ?? false, "key": view.window?.isKeyWindow ?? false, "active": NSApp.isActive, "width": view.bounds.width, "height": view.bounds.height, "value": value, "url": view.url?.absoluteString ?? ""])
+        case .failure(let error): reply.ok(["attached": true, "failure": error.localizedDescription])
+        }
+      }
+    },
+    "devExtensionGate": { args, reply in
+      guard #available(macOS 15.4, *) else { return reply.ok(["error": "Requires macOS 15.4"]) }
+      let gate = WebKitExtensionGate.shared
+      if args.values["probe"] as? Bool == true { return gate.probe { reply.ok($0) } }
+      guard let tab = WebKitHub.shared.transfers.liveTab(try args.text("tabId")),
+        let url = URL(string: try args.text("url")) else { return reply.ok(["error": "Missing tab or URL"]) }
+      let path = try args.text("path")
+      Task { @MainActor in
+        do { reply.ok(try await gate.prepare(path: path, tab: tab, url: url)) }
+        catch { reply.ok(["error": (error as NSError).description]) }
+      }
+    },
     "devPasswordBridge": { args, reply in
       if args.values["read"] as? Bool == true {
         return ArdiaEngineBridge.callForSecretReply("ac_passwords_logins", profile: args.profile, timeout: 1) { reply.ok($0 ?? [:]) }

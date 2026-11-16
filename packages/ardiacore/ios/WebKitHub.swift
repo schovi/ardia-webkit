@@ -81,6 +81,7 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
   func configuration(profile: String) -> WKWebViewConfiguration {
     let config = WKWebViewConfiguration()
     config.websiteDataStore = stores.dataStore(for: profile)
+    if #available(macOS 15.4, *), !WebKitStores.isPrivate(profile) { config.webExtensionController = WebKitExtensions.shared(profile).controller }
     let controller = WKUserContentController()
     controller.addUserScript(WKUserScript(source: WebKitPageScript.source, injectionTime: .atDocumentStart, forMainFrameOnly: false, in: Self.world))
     controller.add(self, contentWorld: Self.world, name: "ardia")
@@ -130,6 +131,9 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
   }
 
   static func close(_ webView: WKWebView) {
+    if #available(macOS 15.4, *) {
+      for manager in WebKitExtensions.profiles.values { manager.closed(webView) }
+    }
     WebKitHub.shared.transfers.unregister(webView)
     webView.navigationDelegate = nil
     webView.uiDelegate = nil
@@ -189,6 +193,7 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
 
   func deleteProfileData(_ profile: String, completion: @escaping (Bool) -> Void) {
     guard !WebKitStores.isPrivate(profile) else { return completion(true) }
+    if #available(macOS 15.4, *) { WebKitExtensions.profiles.removeValue(forKey: profile) }
     let identifier = WebKitStores.storeIdentifier(profile)
     let removed = stores.forgetProfile(profile)
     downloads.cancelAll(profile: profile)

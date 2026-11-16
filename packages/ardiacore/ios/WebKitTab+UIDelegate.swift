@@ -3,6 +3,7 @@ import WebKit
 
 extension WebKitTab {
   func focusPage() {
+    if let extensionPopup { window?.makeFirstResponder(extensionPopup); return }
     guard let view = webView else { return }
     view.focusRequests += 1
     window?.makeFirstResponder(view)
