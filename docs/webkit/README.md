@@ -4,7 +4,7 @@ A fork of [Ardia](https://github.com/mantrakp04/ardia) that replaces its Chromiu
 
 Branch `webkit` holds the work. It is based on upstream stable tag `v0.2.46`.
 
-Status: **a Release app (`Ardia WebKit`, 48 MB, no Chromium) passes a smoke pass of basic browsing** (Step 3 done, 2026-11-16). History, bookmarks, favicons, passwords and extensions are still stand-ins.
+Status: **a Release app (`Ardia WebKit`, no Chromium) does basic browsing with favicons, history and search suggestions** (Steps 2, 3 and the first half of 5 done, 2026-11-16). Bookmarks, passwords, extensions, autofill, sync and import are still stand-ins.
 
 | File | What it holds |
 |---|---|
@@ -25,4 +25,4 @@ The app lands in `apps/browser/build-webkit/Build/Products/Release/Ardia WebKit.
 
 ## Next action
 
-Step 5 of the plan: favicons, history and search suggestions on native stores.
+Use the app for real browsing and collect what breaks. Then decide the password approach (plan, Step 2b and Step 6).

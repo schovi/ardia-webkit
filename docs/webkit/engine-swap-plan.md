@@ -147,6 +147,16 @@ Reuse first: the iPhone app's Swift package `apps/ios/Packages/ArdiaKit` builds 
 Done when: history, bookmarks and favicons survive a relaunch, and an Arc import shows spaces, tabs and bookmarks.
 Effort: complexity medium, blast radius new Swift files only, risk low.
 
+**Step 5 result, first half (2026-11-16): favicons, history, search.** Commits `559418202`, `d8dcfd72f`, `6565e82b1`.
+
+- One SQLite file per profile (`<data dir>/WebKit/Stores/<profile>.sqlite3`, system SQLite, no dependency) holds visits and favicons. Private profiles write nothing
+- History feeds the command bar and the existing `ardia://history` view, which is the app's own React Native page and needed no change
+- Deleting a URL and "clear browsing data" empty the store. Deletion cutoffs stop late WebKit callbacks from writing a deleted visit back
+- Search suggestions come from a cookie-less `URLSession` request, http and https only, 10 s timeout
+- Suggestion query with 50,000 visits over 5,000 URLs: 152 ms native, 92 ms in the command bar
+- JS change: one line in `state/favicons/favicons.ts`. `ArdiaKit` was not reused: its history is SwiftData on UIKit
+- Still stand-ins: bookmarks, zoom and site settings, download settings beyond the folder, the Arc import
+
 **Step 6. Passwords.** Form depends on Step 2b:
 
 | Step 2b result | Step 6 |
