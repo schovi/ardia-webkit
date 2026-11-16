@@ -4,7 +4,7 @@ import Foundation
 import Security
 
 public class KeychainModule: Module {
-  private static let service = "Ardia Connected Accounts"
+  private static let service = "Ardia WebKit Connected Accounts"
 
   public func definition() -> ModuleDefinition {
     Name("ArdiaKeychain")

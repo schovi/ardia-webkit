@@ -30,7 +30,7 @@ def method(signature):
         body.append(f'if ({block[2]}) {block[2]}({arguments});')
     if clean(result) != 'void':
         body.append('return {};')
-    return signature + ' {\n  ' + '\n  '.join(body) + '\n}\n'
+    return signature + ' { ' + ' '.join(body) + ' }'
 
 output = ['#import "../' + header + '.h"' for header in headers]
 for header in headers:
@@ -56,7 +56,7 @@ for header in headers:
                     output.append(method(f'{kind} ({value_type}){getter[1] if getter else property_name};'))
                 if 'readonly' not in attributes:
                     output.append(method(f'{kind} (void)set{property_name[0].upper() + property_name[1:]}:({value_type})value;'))
-            else:
+            elif name != 'ArdiaEngineBridge' or not declaration.startswith('+ (void)call:'):
                 output.append(method(declaration))
         output.append('@end')
 (root / 'webkit/Standins.mm').write_text('\n'.join(output) + '\n')

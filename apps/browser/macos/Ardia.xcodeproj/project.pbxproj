@@ -297,7 +297,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"$PROJECT_DIR/../../../packages/shell/docktile/build.sh\" && \"$PROJECT_DIR/../../../packages/shell/scripts/bundle-cli-installer.sh\"\n";
+			shellScript = "\"$PROJECT_DIR/../../../packages/ardiacore/scripts/stage-webkit-resources.sh\" && \"$PROJECT_DIR/../../../packages/shell/docktile/build.sh\" && \"$PROJECT_DIR/../../../packages/shell/scripts/bundle-cli-installer.sh\"\n";
 		};
 		F2B782290948FD07702EBCEC /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -378,8 +378,8 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
-				PRODUCT_BUNDLE_IDENTIFIER = com.ardia.browser;
-				PRODUCT_NAME = Ardia;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ardia.webkit;
+				PRODUCT_NAME = "Ardia WebKit";
 				SDKROOT = macosx;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -411,8 +411,8 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
-				PRODUCT_BUNDLE_IDENTIFIER = com.ardia.browser;
-				PRODUCT_NAME = Ardia;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ardia.webkit;
+				PRODUCT_NAME = "Ardia WebKit";
 				SDKROOT = macosx;
 				SWIFT_VERSION = 5.0;
 			};

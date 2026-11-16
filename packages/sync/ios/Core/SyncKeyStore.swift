@@ -11,7 +11,7 @@ public struct KeychainKeyStore: SyncKeyStore {
   public let service: String
   let calls: KeychainCalls
 
-  public init(service: String = "Ardia Sync Key") { self.init(service: service, calls: SystemKeychain()) }
+  public init(service: String = "Ardia WebKit Sync Key") { self.init(service: service, calls: SystemKeychain()) }
 
   init(service: String, calls: KeychainCalls) {
     self.service = service
