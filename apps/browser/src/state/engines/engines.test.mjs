@@ -23,11 +23,11 @@ test("rules match the exact site, never its subdomains", () => {
   assert.equal(ruleFor(s, "https://netflix.com/browse"), "webkit");
   assert.equal(ruleFor(s, "https://www.netflix.com/browse"), undefined);
   assert.equal(ruleFor(s, "http://netflix.com/"), undefined);
-  assert.equal(engineForUrl(s, "https://www.netflix.com/"), "chromium");
+  assert.equal(engineForUrl(s, "https://www.netflix.com/"), "webkit");
   assert.equal(engineForUrl({ settings: { ...s.settings, pageEngine: "webkit" } }, "https://example.com/"), "webkit");
 });
 
-test("a tab keeps its engine, else follows its adoption, its opener, then rules", () => {
+test("every tab uses WebKit despite its saved engine, adoption, opener or rules", () => {
   const rules = { websiteEngines: { "https://www.netflix.com": "webkit" } };
   const s = state(
     [
@@ -41,20 +41,20 @@ test("a tab keeps its engine, else follows its adoption, its opener, then rules"
     ],
     rules,
   );
-  assert.equal(tabEngine(s, "fixed"), "chromium");
+  assert.equal(tabEngine(s, "fixed"), "webkit");
   assert.equal(tabEngine(s, "popup"), "webkit");
-  assert.equal(tabEngine(s, "chrome"), "chromium");
+  assert.equal(tabEngine(s, "chrome"), "webkit");
   assert.equal(tabEngine(s, "link"), "webkit");
   assert.equal(tabEngine(s, "typed"), "webkit");
   assert.equal(tabEngine(s, "copy"), "webkit");
-  assert.equal(tabEngine(s, "gone"), "chromium");
+  assert.equal(tabEngine(s, "gone"), "webkit");
 });
 
-test("typing an address follows a rule, else keeps the page's engine", () => {
+test("typing an address always uses WebKit", () => {
   const s = state([tab("w", { engine: "webkit", url: "https://www.netflix.com/" }), tab("blank")], { websiteEngines: { "https://www.youtube.com": "chromium" } });
-  assert.equal(typedNavigationEngine(s, s.tabs.w, "https://www.youtube.com/"), "chromium");
+  assert.equal(typedNavigationEngine(s, s.tabs.w, "https://www.youtube.com/"), "webkit");
   assert.equal(typedNavigationEngine(s, s.tabs.w, "https://example.com/"), "webkit");
-  assert.equal(typedNavigationEngine(s, s.tabs.blank, "https://example.com/"), "chromium");
+  assert.equal(typedNavigationEngine(s, s.tabs.blank, "https://example.com/"), "webkit");
 });
 
 test("streaming sites open in WebKit when the setting is on, over https, subdomains included", () => {
@@ -74,27 +74,27 @@ test("streaming sites open in WebKit when the setting is on, over https, subdoma
   assert.equal(tabEngine(on, "typed"), "webkit");
   assert.equal(typedNavigationEngine(on, on.tabs.page, "https://www.disneyplus.com/"), "webkit");
   assert.equal(recommendedEngineFor(on, "https://www.netflix.com/"), "webkit");
-  assert.equal(recommendedEngineFor(on, "https://example.com/"), "chromium");
+  assert.equal(recommendedEngineFor(on, "https://example.com/"), "webkit");
 });
 
-test("a website rule wins over the streaming default", () => {
+test("saved engine rules cannot change the WebKit renderer", () => {
   const s = state([], { protectedVideoInWebKit: true, websiteEngines: { "https://www.netflix.com": "chromium" } });
   assert.equal(chosenEngine(s, "https://www.netflix.com/"), "chromium");
-  assert.equal(engineForUrl(s, "https://www.netflix.com/"), "chromium");
+  assert.equal(engineForUrl(s, "https://www.netflix.com/"), "webkit");
   assert.equal(engineForUrl(s, "https://netflix.com/"), "webkit");
   assert.equal(ruleFor(s, "https://netflix.com/"), undefined);
 });
 
-test("Chromium's own pages always open in Chromium", () => {
+test("internal URLs cannot select Chromium", () => {
   const s = state([tab("v", { engine: "webkit", url: "ardia://version" }), tab("w", { engine: "webkit", url: "https://a.com/" })], { pageEngine: "webkit" });
-  assert.equal(tabEngine(s, "v"), "chromium");
-  assert.equal(typedNavigationEngine(s, s.tabs.w, "ardia://extensions"), "chromium");
-  assert.equal(typedNavigationEngine(s, s.tabs.w, "chrome-extension://abc/options.html"), "chromium");
+  assert.equal(tabEngine(s, "v"), "webkit");
+  assert.equal(typedNavigationEngine(s, s.tabs.w, "ardia://extensions"), "webkit");
+  assert.equal(typedNavigationEngine(s, s.tabs.w, "chrome-extension://abc/options.html"), "webkit");
 });
 
-test("the mark shows only on web pages away from the default engine", () => {
+test("no tab needs an engine mark in a WebKit-only app", () => {
   const s = state([tab("w", { engine: "webkit", url: "https://a.com/" }), tab("c", { engine: "chromium", url: "https://a.com/" }), tab("n", { engine: "webkit", url: "ardia://history" })]);
-  assert.equal(engineMark(s, "w"), "webkit");
+  assert.equal(engineMark(s, "w"), null);
   assert.equal(engineMark(s, "c"), null);
   assert.equal(engineMark(s, "n"), null);
 });

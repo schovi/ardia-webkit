@@ -19,92 +19,14 @@ registerHooks({
 
 const { useBrowser } = await import("../browser/store.ts");
 const model = await import("../browser/model.ts");
-const { webviews } = await import("../../platform/webviews.ts");
-const { patchPage, pageOf } = await import("../tabs/pageState.ts");
-const { goBackAcrossEngines, offerWebKit } = await import("./actions.ts");
+const { offerWebKit } = await import("./actions.ts");
 
 const S = () => useBrowser.getState();
-const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
-
-function movedTab(url) {
+test("WebKit pages do not offer an engine move or create a move-back toast", () => {
   S().hydrate({});
-  const w = S().createWindow({ url });
-  const tabId = model.activeTabId(S(), w);
-  S().updateTab(tabId, { engine: "webkit", url });
-  patchPage(tabId, { engineBack: { engine: "chromium", url: "https://search.example/?q=film" } });
-  return { w, tabId };
-}
-
-test("Back across engines asks first when the page has unsaved input, and staying keeps the page", async () => {
-  const { tabId } = movedTab("https://www.netflix.com/browse");
-  webviews.set(tabId, { evaluate: () => Promise.resolve(true) });
-  assert.equal(await goBackAcrossEngines(tabId), false);
-  assert.equal(S().tabs[tabId].engine, "webkit");
-  assert.ok(pageOf(tabId).engineBack);
-  webviews.clear();
-});
-
-test("Back across engines without unsaved input reopens the page before in its engine", async () => {
-  const { tabId } = movedTab("https://www.netflix.com/browse");
-  webviews.set(tabId, { evaluate: () => Promise.resolve(false) });
-  assert.equal(await goBackAcrossEngines(tabId), true);
-  assert.equal(S().tabs[tabId].engine, "chromium");
-  assert.equal(S().tabs[tabId].page.nav.url, "https://search.example/?q=film");
-  assert.equal(pageOf(tabId).engineBack, null);
-  webviews.clear();
-});
-
-test("Move Back goes away once the tab leaves the moved site, and never saves a rule for another site", async () => {
-  S().hydrate({});
-  S().updateSettings({ protectedVideoInWebKit: true });
   const w = S().createWindow({ url: "https://www.netflix.com/watch/1" });
   const tabId = model.activeTabId(S(), w);
-  S().updateTab(tabId, { engine: "chromium", url: "https://www.netflix.com/watch/1" });
-  webviews.set(tabId, { evaluate: () => Promise.resolve(false) });
   offerWebKit(tabId, { keySystem: "com.widevine.alpha", main: true });
-  await settle();
-  const toast = toasts.get(w);
-  assert.equal(toast?.action?.title, "Move Back");
-  S().updateTab(tabId, { url: "https://other.example/" });
   assert.equal(toasts.has(w), false);
-  toast.action.run();
-  await settle();
   assert.deepEqual(S().settings.websiteEngines, {});
-  webviews.clear();
-});
-
-test("moving the same tab to WebKit again keeps one watch on its site, and closing the tab ends it", async () => {
-  S().hydrate({});
-  const realSubscribe = useBrowser.subscribe;
-  let live = 0;
-  useBrowser.subscribe = (listener) => {
-    live++;
-    const stop = realSubscribe(listener);
-    let stopped = false;
-    return () => {
-      if (!stopped) live--;
-      stopped = true;
-      stop();
-    };
-  };
-  try {
-    S().updateSettings({ websiteEngines: { "https://www.netflix.com": "webkit" } });
-    const w = S().createWindow({ url: "https://www.netflix.com/watch/1" });
-    const tabId = model.activeTabId(S(), w);
-    webviews.set(tabId, { evaluate: () => Promise.resolve(false) });
-    for (let i = 0; i < 3; i++) {
-      S().updateTab(tabId, { engine: "chromium", url: "https://www.netflix.com/watch/1" });
-      offerWebKit(tabId, { keySystem: "com.widevine.alpha", main: true });
-      await settle();
-      await settle();
-      assert.equal(S().tabs[tabId].engine, "webkit");
-    }
-    assert.equal(live, 1);
-    S().closeTab(tabId);
-    assert.equal(live, 0);
-  } finally {
-    useBrowser.subscribe = realSubscribe;
-    S().updateSettings({ websiteEngines: {} });
-    webviews.clear();
-  }
 });

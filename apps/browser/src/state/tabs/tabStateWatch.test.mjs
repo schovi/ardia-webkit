@@ -72,7 +72,7 @@ test("every action wakes each tab whose row state it changed", () => {
   watch.stop();
 });
 
-test("closing the tab a pending duplicate copies its engine from wakes the duplicate", () => {
+test("closing a clone source keeps the duplicate on WebKit without changing its row", () => {
   const { w, ids } = session(3);
   const [source, copy, other] = ids;
   S().updateSettings({ websiteEngines: { "https://a.com": "webkit" } });
@@ -82,7 +82,7 @@ test("closing the tab a pending duplicate copies its engine from wakes the dupli
   const watch = watching(w);
   const before = rowFlags(S(), w, copy);
   const woken = watch.run("close the source", () => S().closeTab(source));
-  assert.notEqual(rowFlags(S(), w, copy), before);
+  assert.equal(rowFlags(S(), w, copy), before);
   assert.ok(woken.has(copy));
   watch.stop();
 });

@@ -66,7 +66,7 @@ test("Clear Cookies and Site Data clears the site the confirmation named, also w
   const stay = pendingClear();
   assert.deepEqual(stay.asked, ["Clear cookies and site data for a.com?"]);
   assert.equal(await stay.finish(true), 0);
-  assert.deepEqual(stay.engineCalls, [{ verb: "clearData", profile: stay.work, origin: "https://a.com", engine: "chromium" }]);
+  assert.deepEqual(stay.engineCalls, [{ verb: "clearData", profile: stay.work, origin: "https://a.com", engine: "webkit" }]);
   assert.equal(stay.view.reloaded, 1, "the page reloads without its data");
 
   const moved = pendingClear();

@@ -24,7 +24,7 @@ export function siteOf(url: string | undefined | null): string | null {
   }
 }
 
-export const canSwitchEngine = (url: string | undefined | null) => !!url && isWebPageUrl(url);
+export const canSwitchEngine = (_url: string | undefined | null) => false;
 export const chromiumOnly = (_url: string | undefined | null) => false;
 
 export const defaultEngine = (s: Pick<BrowserState, "settings">): PageEngine => "webkit";
@@ -66,7 +66,7 @@ export const chosenEngine = (s: Pick<BrowserState, "settings">, url: string | un
 
 export const recommendedEngineFor = (s: Pick<BrowserState, "settings">, url: string | undefined | null): PageEngine => builtInEngine(s, url) ?? defaultEngine(s);
 
-export const engineForUrl = (s: Pick<BrowserState, "settings">, url: string | undefined | null): PageEngine => chosenEngine(s, url) ?? defaultEngine(s);
+export const engineForUrl = (s: Pick<BrowserState, "settings">, url: string | undefined | null): PageEngine => "webkit";
 
 const fromAdoption = (s: EngineState, t: Tab, depth: number): PageEngine | undefined => {
   const id = adoptKind(adoptOf(t));

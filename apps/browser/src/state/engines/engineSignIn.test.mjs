@@ -31,7 +31,7 @@ function pageWithCookies() {
   return { handle: { pageCookies: () => pending }, answer: () => answer([cookie]) };
 }
 
-test("the default profile's cookies go to its WebKit store, whose key is the empty string", async () => {
+test("WebKit pages do not copy cookies from a removed Chromium store", async () => {
   S().hydrate({});
   imports.length = 0;
   const w = S().createWindow({ url: "https://video.example/title/1" });
@@ -40,8 +40,9 @@ test("the default profile's cookies go to its WebKit store, whose key is the emp
   webviews.set(tabId, page.handle);
   const carried = carrySignInToWebKit(tabId, "https://video.example/title/1");
   page.answer();
-  assert.equal(await carried, 1);
-  assert.deepEqual(imports.map((i) => [i.profile, i.key, i.cookies.length]), [["", "", 1]]);
+  assert.equal(await carried, 0);
+  assert.deepEqual(imports, []);
+  assert.deepEqual(storeKeys, []);
   webviews.clear();
 });
 
