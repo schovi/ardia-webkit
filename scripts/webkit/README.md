@@ -133,3 +133,15 @@ Settings rows use the local fixture. Persistence rows relaunch on the same scrat
 `download-settings` uses a slow fixture with Range support for pause, resume, and cancel. Background mode logs the save-panel request and uses the configured scratch folder. A person must verify the actual picker. The About test invokes the native menu action; background mode logs its versions instead of opening a panel.
 
 The native row links `Store.mm` into the Swift page self-check through the public settings declarations. Popup migration and private grants therefore use the actual SQLite implementation.
+
+## Bookmarks
+
+Step 5 adds `bookmark-add`, `bookmark-folder`, `bookmark-persist`, `bookmark-export`, `bookmark-profile`, and `bookmark-private`.
+
+The rows drive the existing command, dialog button, store actions, and mounted components through the harness. Reorder uses `moveBookmark`, the action called by drag completion. Physical drag recognition remains in `docs/webkit/needs-person.md`.
+
+`bookmark-persist` removes the JS bookmark cache before relaunch and checks the profile SQLite file. It retains `apps/browser/build-webkit/step-5-evidence/bookmarks-bar.png`.
+
+Background `bookmarks.exportHtml` bypasses the save panel and writes `<data>/WebKit/Bookmarks.html`. The row parses the file with the real import module. Foreground export still uses the save panel.
+
+Chromium suppresses `bookmarks.changed` during `apply`. The watcher row checks this and the initial model-load event with `{profile}`. UI edits already update the JS store before saving.

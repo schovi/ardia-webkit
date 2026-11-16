@@ -12,12 +12,7 @@ public class BookmarksModule: Module {
   }
 
   static func exportHtml(_ args: CallArgs, _ reply: CallReply) {
-    let panel = NSSavePanel()
-    panel.nameFieldStringValue = "Ardia Bookmarks.html"
-    panel.allowedContentTypes = [.html]
-    panel.canCreateDirectories = true
-    panel.begin { response in
-      guard response == .OK, let path = panel.url?.path else { return reply.ok(nil) }
+    let save: (String) -> Void = { path in
       guard let data = try? JSONSerialization.data(withJSONObject: ["path": path]), let json = String(data: data, encoding: .utf8) else {
         return reply.fail("ERR_BAD_REPLY", "the path isn't JSON")
       }
@@ -25,6 +20,18 @@ public class BookmarksModule: Module {
         if let message = CallReply.engineError(result) { return reply.fail("ERR_ENGINE", message) }
         reply.ok(path)
       }
+    }
+    if LaunchConfig.shared.background {
+      NSLog("[webkit] bookmark save panel (background mode, not shown)")
+      return save((ArdiaHost.dataDirectory as NSString).appendingPathComponent("Bookmarks.html"))
+    }
+    let panel = NSSavePanel()
+    panel.nameFieldStringValue = "Ardia Bookmarks.html"
+    panel.allowedContentTypes = [.html]
+    panel.canCreateDirectories = true
+    panel.begin { response in
+      guard response == .OK, let path = panel.url?.path else { return reply.ok(nil) }
+      save(path)
     }
   }
 

@@ -1,4 +1,5 @@
 #import "Store.h"
+#import "Bookmarks.h"
 #import "../ArdiaServices.h"
 #import "../ArdiaEvents.h"
 #import "../ArdiaHost.h"
@@ -76,6 +77,7 @@ NSString *FileName(NSString *profile) {
       "CREATE TABLE IF NOT EXISTS visits(url TEXT REFERENCES pages(url) ON DELETE CASCADE,at REAL,PRIMARY KEY(url,at));"
       "CREATE TABLE IF NOT EXISTS deletions(url_hash TEXT,since REAL,until REAL,PRIMARY KEY(url_hash,since));"
       "CREATE TABLE IF NOT EXISTS icons(url TEXT PRIMARY KEY,png TEXT NOT NULL);"
+      "CREATE TABLE IF NOT EXISTS bookmarks(id TEXT PRIMARY KEY,parent TEXT NOT NULL,position INTEGER NOT NULL,value TEXT NOT NULL);"
       "CREATE TABLE IF NOT EXISTS settings(section TEXT,key TEXT,value TEXT NOT NULL,PRIMARY KEY(section,key));"
       "CREATE TABLE IF NOT EXISTS page_icons(page TEXT PRIMARY KEY,icon TEXT NOT NULL);");
   }
@@ -88,6 +90,7 @@ NSString *FileName(NSString *profile) {
   dispatch_async(dispatch_get_main_queue(), ^{ [ArdiaEvents emit:@"history.changed" data:event]; });
 }
 - (NSDictionary *)call:(NSString *)name args:(NSDictionary *)args {
+  if ([name hasPrefix:@"ac_bookmarks_"]) return WebKitBookmarksCall(_database, name, _profile, args);
   if ([name isEqualToString:@"settings.read"]) {
     Statement read(_database, "SELECT key,value FROM settings WHERE section=? ORDER BY key");
     read.text(1, Text(args[@"section"]));
@@ -232,6 +235,7 @@ NSString *FileName(NSString *profile) {
 @end
 
 void WebKitStoreCall(NSString *name, NSString *profile, NSDictionary *args, void (^reply)(NSDictionary *)) {
+  if (WebKitPrivateProfile(profile) && [name hasPrefix:@"ac_bookmarks_"]) profile = [ArdiaHost baseProfileOf:profile];
   if (WebKitPrivateProfile(profile)) {
     if ([name isEqualToString:@"ac_history_query"]) return reply(@{@"entries": @[]});
     if ([name isEqualToString:@"ac_history_add"]) return reply(@{@"added": @0});

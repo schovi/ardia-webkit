@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <unistd.h>
 
+void CheckWebKitBookmarks(WebKitStore *store);
 static NSString *directory;
 static void Check(bool value, const char *name) {
   if (!value) { std::fprintf(stderr, "FAIL %s\n", name); std::exit(1); }
@@ -44,13 +45,12 @@ int main(int argc, const char **argv) {
     __block BOOL emptyExtensions = NO;
     [ArdiaServices listExtensions:@"" reply:^(id result, NSString *error) { emptyExtensions = !error && [result[@"extensions"] isEqual:@[]]; }];
     Check(emptyExtensions, "extensions list has a correctly shaped empty result");
-    for (NSString *name in @[@"ac_bookmarks_watch", @"ac_extensions_watch_actions", @"ac_extensions_load_health", @"ac_bookmarks_tree"]) {
+    for (NSString *name in @[@"ac_extensions_watch_actions", @"ac_extensions_load_health"]) {
       __block NSDictionary *result;
       [ArdiaEngineBridge call:name profile:@"" args:@"{}" completion:^(NSString *json) {
         result = [NSJSONSerialization JSONObjectWithData:[json dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
       }];
       Check(result != nil, "placeholder engine calls return JSON objects");
-      if ([name isEqual:@"ac_bookmarks_tree"]) Check([result[@"bar"][@"c"] isEqual:@[]] && [result[@"other"][@"k"] isEqual:@"f"], "bookmark placeholder has both empty folder roots");
       if ([name isEqual:@"ac_extensions_load_health"]) Check([result[@"enabled"] intValue] == 0 && [result[@"disabled"] isKindOfClass:NSDictionary.class], "extension health placeholder shape");
     }
     NSDictionary *emptyBlocker = WebKitContentBlockerSettings(@{}, @{});
@@ -106,6 +106,7 @@ int main(int argc, const char **argv) {
     Check([[WebKitStore alloc] initWithDirectory:privateFolder profile:@"incognito:w1@work"] == nil, "private store refused");
     Check(![NSFileManager.defaultManager fileExistsAtPath:privateFolder], "private writes nothing");
     WebKitStore *store = [[WebKitStore alloc] initWithDirectory:stores profile:@""];
+    CheckWebKitBookmarks(store);
     [store call:@"settings.write" args:@{@"section": @"sites", @"key": @"https://one.example", @"value": @{@"camera": @"block", @"popups": @"allow"}}];
     [store call:@"settings.write" args:@{@"section": @"zoom", @"key": @"one.example", @"value": @1.25}];
     store = nil;

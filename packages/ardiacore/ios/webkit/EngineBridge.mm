@@ -26,13 +26,11 @@
     return answer(settings);
   }
   static NSDictionary *defaults = @{
-    @"ac_bookmarks_watch": @{}, @"ac_extensions_watch_actions": @{},
-    @"ac_extensions_load_health": @{@"dropped": @0, @"enabled": @0, @"disabled": @{}},
-    @"ac_bookmarks_tree": @{
-      @"bar": @{@"id": @"bar", @"k": @"f", @"t": @"Bookmarks Bar", @"a": @0, @"c": @[]},
-      @"other": @{@"id": @"other", @"k": @"f", @"t": @"Other Bookmarks", @"a": @0, @"c": @[]}}
+    @"ac_extensions_watch_actions": @{},
+    @"ac_extensions_load_health": @{@"dropped": @0, @"enabled": @0, @"disabled": @{}}
   };
   if (defaults[name]) return answer(defaults[name]);
+  if ([name hasPrefix:@"ac_bookmarks_"]) return WebKitStoreCall(name, profile, values, answer);
   if ([@[@"ac_history_query", @"ac_history_add", @"ac_history_delete_urls", @"ac_history_watch", @"ac_favicons_get", @"ac_favicons_set"] containsObject:name]) {
     return WebKitStoreCall(name, profile, values, answer);
   }
