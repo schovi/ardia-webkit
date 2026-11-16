@@ -1,16 +1,14 @@
 import AppKit
+import WebKit
 
 extension WebKitTab: PageTab {
   static let unsupported = "unsupported"
 
-  var standalone: Bool { get { false } set {} }
   var temporary: Bool { get { false } set {} }
   var temporarySource: String? { get { nil } set {} }
   var extensionHost: String? { get { nil } set {} }
   var warm: Bool { get { false } set {} }
   var neighbour: Bool { get { false } set {} }
-  var pageColor: String? { get { nil } set {} }
-  var contentsBackgroundColor: NSColor? { get { nil } set {} }
   var shownURL: String? { get { nil } set {} }
   var frozen: Bool { get { false } set {} }
   var mediaCaptureSourceId: String? { nil }
@@ -26,7 +24,23 @@ extension WebKitTab: PageTab {
 
   func securityInfo(_ completion: @escaping ([String: Any]) -> Void) { completion(securityInfo()) }
 
-  func showDevTools(panel: String?) {}
+  func showDevTools(panel: String?) {
+    guard let view = webView, view.responds(to: NSSelectorFromString("_inspector")),
+      let inspector = view.value(forKey: "_inspector") as? NSObject else { return }
+    let preferences = view.configuration.preferences
+    guard preferences.responds(to: NSSelectorFromString("_setDeveloperExtrasEnabled:")) else { return }
+    preferences.setValue(true, forKey: "developerExtrasEnabled")
+    guard preferences.value(forKey: "developerExtrasEnabled") as? Bool == true else { return }
+    let selector = NSSelectorFromString(panel == "console" ? "showConsole" : "show")
+    guard inspector.responds(to: selector) else { return }
+    if LaunchConfig.shared.background {
+      NSLog("[webkit] inspector %@ (background mode, not shown)", panel ?? "default")
+      return
+    }
+    inspector.perform(selector)
+    let inspect = NSSelectorFromString("toggleElementSelection")
+    if panel == "inspect", inspector.responds(to: inspect) { inspector.perform(inspect) }
+  }
 
   func downloadImage(_ url: String, maxPixels: Int, completion: @escaping ([String: Any]?) -> Void) {
     downloadFavicon(url, completion: completion)
@@ -42,7 +56,24 @@ extension WebKitTab: PageTab {
 
   func pageCookies(_ urls: [String], completion: @escaping ([[String: Any]]?) -> Void) { completion([]) }
 
-  func openBlockedPopup(_ popupId: String, always: Bool) {}
+  func openBlockedPopup(_ popupId: String, always: Bool) {
+    guard let popup = blockedPopups.removeValue(forKey: popupId), let url = popup.request.url else { return }
+    if always { WebKitHub.shared.stores.allowPopups(profile: profile, origin: popup.origin) }
+    emit("openWindow", ["url": url.absoluteString, "disposition": "foreground", "userGesture": true])
+  }
+
+  func updatePageColors() {
+    let color = contentsBackgroundColor ?? pageBackgroundColor ?? .textBackgroundColor
+    wantsLayer = true
+    layer?.backgroundColor = color.cgColor
+    webView?.underPageBackgroundColor = color
+  }
+
+  func updateErrorColor() {
+    guard webView?.title == "Can't Open This Page" else { return }
+    let color = pageColor ?? ""
+    webView?.evaluateJavaScript("window.ardiaPageColor = \(Self.jsString(color)); window.dispatchEvent(new Event('ardiapagecolor'))") { _, _ in }
+  }
 
   func resolvePasswordPrompt(_ action: String, username: String?, password: String?) {}
 

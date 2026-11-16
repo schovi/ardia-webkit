@@ -37,6 +37,31 @@ final class WebKitStores {
     let token: String
   }
 
+  private var popupGrants: [String: Set<String>] = [:]
+
+  private var popupGrantsURL: URL {
+    URL(fileURLWithPath: ArdiaHost.dataDirectory).appendingPathComponent("popup-grants.json")
+  }
+
+  func allowsPopups(profile: String, origin: String) -> Bool {
+    if Self.isPrivate(profile) { return popupGrants[id(of: profile).wireKey]?.contains(origin) == true }
+    let grants = (try? Data(contentsOf: popupGrantsURL)).flatMap { try? JSONDecoder().decode([String: Set<String>].self, from: $0) } ?? [:]
+    return grants[profile]?.contains(origin) == true
+  }
+
+  func allowPopups(profile: String, origin: String) {
+    if Self.isPrivate(profile) {
+      popupGrants[id(of: profile).wireKey, default: []].insert(origin)
+      return
+    }
+    var grants = (try? Data(contentsOf: popupGrantsURL)).flatMap { try? JSONDecoder().decode([String: Set<String>].self, from: $0) } ?? [:]
+    grants[profile, default: []].insert(origin)
+    do {
+      try FileManager.default.createDirectory(at: popupGrantsURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+      try JSONEncoder().encode(grants).write(to: popupGrantsURL, options: .atomic)
+    } catch { NSLog("[webkit] cannot save popup permission: %@", error.localizedDescription) }
+  }
+
   private var persistent: [String: WKWebsiteDataStore] = [:]
   private var privateSessions: [String: PrivateSession] = [:]
   private var deletedProfiles: [String: WKWebsiteDataStore] = [:]

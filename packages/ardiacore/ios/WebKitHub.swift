@@ -86,7 +86,7 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
     config.allowsAirPlayForMediaPlayback = true
     config.preferences.isElementFullscreenEnabled = !LaunchConfig.shared.background
     Self.allowPictureInPicture(config.preferences)
-    config.preferences.javaScriptCanOpenWindowsAutomatically = false
+    config.preferences.javaScriptCanOpenWindowsAutomatically = true
     config.preferences.isFraudulentWebsiteWarningEnabled = false
     config.defaultWebpagePreferences.preferredContentMode = .desktop
     return config

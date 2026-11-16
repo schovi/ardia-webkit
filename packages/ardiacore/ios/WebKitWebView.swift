@@ -2,6 +2,8 @@ import AppKit
 import WebKit
 
 final class WebKitWebView: WKWebView {
+  var contextPopupDeadline = 0.0
+  private var contextMenuActions: [WebKitContextMenuAction] = []
   var focusRequests = 0
   var onPress: (() -> Void)?
   var onFocus: (() -> Void)?
@@ -83,8 +85,17 @@ final class WebKitWebView: WKWebView {
       "WKMenuItemIdentifierOpenMediaInNewWindow": "Open Video in New Tab",
       "WKMenuItemIdentifierOpenFrameInNewWindow": "Open Frame in New Tab",
     ]
+    contextMenuActions = []
     for item in menu.items {
-      if let id = item.identifier?.rawValue, let title = renames[id] { item.title = title }
+      if let id = item.identifier?.rawValue, let title = renames[id] {
+        item.title = title
+        if let action = item.action {
+          let handler = WebKitContextMenuAction(view: self, target: item.target as AnyObject?, action: action)
+          contextMenuActions.append(handler)
+          item.target = handler
+          item.action = #selector(WebKitContextMenuAction.open(_:))
+        }
+      }
     }
     if LaunchConfig.shared.background {
       let items = menu.items.map { ["title": $0.title, "enabled": $0.isEnabled] as [String: Any] }
@@ -102,5 +113,23 @@ final class WebKitWebView: WKWebView {
       menu.removeAllItems()
       DispatchQueue.main.async { menu.cancelTrackingWithoutAnimation() }
     }
+  }
+}
+
+
+final class WebKitContextMenuAction: NSObject {
+  private weak var view: WebKitWebView?
+  private weak var target: AnyObject?
+  private let action: Selector
+
+  init(view: WebKitWebView, target: AnyObject?, action: Selector) {
+    self.view = view
+    self.target = target
+    self.action = action
+  }
+
+  @objc func open(_ sender: NSMenuItem) {
+    view?.contextPopupDeadline = ProcessInfo.processInfo.systemUptime + 1
+    NSApp.sendAction(action, to: target, from: sender)
   }
 }

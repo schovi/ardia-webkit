@@ -15,7 +15,13 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
   var transferKey: String?
   var visible = true { didSet { updateHidden(); updateSight() } }
   var autoPictureInPicture = false
-  var pageBackgroundColor: NSColor? { didSet { if let color = pageBackgroundColor { webView?.underPageBackgroundColor = color } } }
+  var pageBackgroundColor: NSColor? { didSet { updatePageColors() } }
+  var contentsBackgroundColor: NSColor? { didSet { updatePageColors() } }
+  var pageColor: String? { didSet { updateErrorColor() } }
+  var standalone = false
+  var blockedPopups: [String: (request: URLRequest, origin: String)] = [:]
+  var authenticationReply: ((URLSession.AuthChallengeDisposition, URLCredential?) -> Void)?
+  var authenticationSheet: NSAlert?
   let browserId = WebKitHub.shared.nextBrowserId()
 
   private(set) var webView: WebKitWebView?
@@ -89,6 +95,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
   func relinquish() -> WebKitWebView? {
     guard !closed, let view = webView else { return nil }
     closed = true
+    resolveHTTPAuth(username: nil, password: nil)
     observations = []
     WebKitHub.shared.permissions.drop(browserId: browserId)
     if let key = transferKey { WebKitHub.shared.transfers.forgetLive(self, key: key) }
@@ -117,8 +124,8 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     view.uiDelegate = self
     view.allowsBackForwardNavigationGestures = true
     view.allowsMagnification = true
-    view.isInspectable = WebKitHub.inspectable && !WebKitStores.isPrivate(profile)
-    if let color = pageBackgroundColor { view.underPageBackgroundColor = color }
+    view.isInspectable = true
+    updatePageColors()
     view.onPress = { [weak self] in self?.emit("pagePress") }
     view.onFocus = { [weak self] in self?.emit("focus") }
     view.frame = bounds
@@ -156,6 +163,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
   func close() {
     guard !closed else { return }
     closed = true
+    resolveHTTPAuth(username: nil, password: nil)
     observations = []
     WebKitHub.shared.permissions.drop(browserId: browserId)
     if let key = transferKey { WebKitHub.shared.transfers.forgetLive(self, key: key) }
@@ -187,7 +195,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     guard let view = webView else { return }
     let theme = view.themeColor.flatMap(Self.hex)
     var navigation: [String: Any] = [
-      "url": view.url?.absoluteString ?? "",
+      "url": (showingError ? errorURL : view.url)?.absoluteString ?? "",
       "committedUrl": showingError ? "" : (view.backForwardList.currentItem?.url.absoluteString ?? ""),
       "committedAt": committedAt,
       "title": showingError ? "Can't Open This Page" : (view.title ?? ""),
@@ -458,6 +466,11 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
                decisionHandler: @escaping (WKNavigationActionPolicy, WKWebpagePreferences) -> Void) {
     let decide = { (policy: WKNavigationActionPolicy) in decisionHandler(policy, preferences) }
     guard let url = action.request.url else { return decide(.allow) }
+    if showingError && url.absoluteString == "ardia-retry:" {
+      decide(.cancel)
+      reload()
+      return
+    }
     let scheme = url.scheme?.lowercased() ?? ""
     let webSchemes: Set<String> = ["http", "https", "file", "about", "data", "blob", "javascript", "webkit-pdfjs-viewer"]
     if !webSchemes.contains(scheme) {
@@ -524,6 +537,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
 
   func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
     if muted { setMuted(true) }
+    updateErrorColor()
     queueNavigation()
   }
 
@@ -553,20 +567,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     guard let failing else { return queueNavigation() }
     errorURL = failing
     showingError = true
-    webView.loadHTMLString(Self.errorPage(failing, nsError), baseURL: failing)
-  }
-
-  static func errorPage(_ url: URL, _ error: NSError) -> String {
-    let escape = { (text: String) in
-      text.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;").replacingOccurrences(of: ">", with: "&gt;")
-    }
-    return """
-      <!doctype html><html><head><meta charset="utf-8"><meta name="color-scheme" content="light dark"><title>Can't Open This Page</title>
-      <style>body{font:13px -apple-system,system-ui;display:flex;align-items:center;justify-content:center;height:90vh;margin:0;color:#555}
-      @media (prefers-color-scheme: dark){body{color:#bbb;background:#1e1e1e}}main{max-width:460px;text-align:center}
-      h1{font-size:20px;font-weight:600;color:CanvasText;margin:0 0 8px}p{margin:4px 0;word-break:break-word}</style></head>
-      <body><main><h1>Can't open this page</h1><p>\(escape(url.host ?? url.absoluteString))</p><p>\(escape(error.localizedDescription))</p></main></body></html>
-      """
+    webView.loadHTMLString(WebKitPagePolicy.errorPage(failing, nsError), baseURL: failing)
   }
 
   func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
@@ -579,19 +580,4 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     if webView?.nowPlaying.reset() == true { emit("nowPlaying", ["state": NSNull()]) }
   }
 
-  func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for action: WKNavigationAction,
-               windowFeatures: WKWindowFeatures) -> WKWebView? {
-    let child = WebKitWebView(frame: .zero, configuration: configuration)
-    child.navigationDelegate = WebKitPopupPolicy.shared
-    let id = WebKitHub.shared.transfers.offer(child)
-    let flags = action.modifierFlags
-    let popup = windowFeatures.width != nil || windowFeatures.height != nil
-    let disposition = flags.contains(.command) || action.buttonNumber == 2 ? (flags.contains(.shift) ? "foreground" : "background") : popup ? "popup" : "foreground"
-    emit("openWindow", ["url": action.request.url?.absoluteString ?? "", "disposition": disposition, "adoptId": id, "userGesture": true])
-    return child
-  }
-
-  func webViewDidClose(_ webView: WKWebView) {
-    emit("windowClose")
-  }
 }

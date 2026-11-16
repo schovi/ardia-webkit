@@ -1,3 +1,5 @@
+import AppKit
+
 enum WebKitPageScript {
   static let source = #"""
 (() => {
@@ -455,4 +457,25 @@ enum WebKitPageScript {
   ]);
 })();
 """#
+}
+
+
+enum WebKitPagePolicy {
+  static func consumeContextPopup(deadline: inout Double, now: Double) -> Bool {
+    let allowed = deadline > now
+    deadline = 0
+    return allowed
+  }
+
+  static func errorPage(_ url: URL, _ error: NSError) -> String {
+    let escape = { (text: String) in
+      text.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;").replacingOccurrences(of: ">", with: "&gt;")
+    }
+    return """
+      <!doctype html><html><head><meta charset="utf-8"><meta name="color-scheme" content="light dark"><title>Can't Open This Page</title>
+      <style>body{font:13px -apple-system,system-ui;display:flex;align-items:center;justify-content:center;height:90vh;margin:0;color:CanvasText;background:Canvas}
+      main{max-width:460px;text-align:center}h1{font-size:20px;font-weight:600;margin:0 0 8px}p{margin:4px 0;word-break:break-word}</style></head>
+      <body><main><h1>Can't open this page</h1><p>\(escape(url.host ?? url.absoluteString))</p><p>\(escape(error.localizedDescription))</p><a id="retry" href="ardia-retry:">Retry</a></main></body></html>
+      """
+  }
 }

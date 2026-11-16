@@ -98,3 +98,79 @@ extension WebKitTab {
     panel.beginSheetModal(for: window) { completionHandler($0 == .OK ? panel.urls : nil) }
   }
 }
+
+extension WebKitTab {
+  func webView(_ webView: WKWebView, didReceive challenge: URLAuthenticationChallenge,
+               completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+    guard challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodHTTPBasic else {
+      return completionHandler(.performDefaultHandling, nil)
+    }
+    resolveHTTPAuth(username: nil, password: nil)
+    authenticationReply = completionHandler
+    let alert = NSAlert()
+    alert.messageText = "Sign in to \(challenge.protectionSpace.host)"
+    alert.informativeText = "\(challenge.protectionSpace.realm ?? "This site") requires a username and password."
+    let fields = NSView(frame: NSRect(x: 0, y: 0, width: 280, height: 58))
+    let username = NSTextField(frame: NSRect(x: 0, y: 32, width: 280, height: 24))
+    username.placeholderString = "Username"
+    let password = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
+    password.placeholderString = "Password"
+    fields.addSubview(username)
+    fields.addSubview(password)
+    alert.accessoryView = fields
+    alert.addButton(withTitle: "Sign In")
+    alert.addButton(withTitle: "Cancel")
+    if LaunchConfig.shared.background {
+      NSLog("[webkit] HTTP auth prompt: %@ (background mode, not shown)", challenge.protectionSpace.host)
+      return
+    }
+    guard let window else { return resolveHTTPAuth(username: nil, password: nil) }
+    authenticationSheet = alert
+    alert.beginSheetModal(for: window) { [weak self, weak alert] response in
+      guard let self, let alert, self.authenticationSheet === alert else { return }
+      self.authenticationSheet = nil
+      self.resolveHTTPAuth(username: response == .alertFirstButtonReturn ? username.stringValue : nil, password: password.stringValue)
+    }
+  }
+
+  func resolveHTTPAuth(username: String?, password: String?) {
+    guard let reply = authenticationReply else { return }
+    authenticationReply = nil
+    if let sheet = authenticationSheet {
+      authenticationSheet = nil
+      sheet.window.sheetParent?.endSheet(sheet.window)
+    }
+    if let username {
+      reply(.useCredential, URLCredential(user: username, password: password ?? "", persistence: .none))
+    } else {
+      reply(.useCredential, nil)
+    }
+  }
+}
+
+extension WebKitTab {
+  func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for action: WKNavigationAction,
+               windowFeatures: WKWindowFeatures) -> WKWebView? {
+    let contextGesture = (webView as? WebKitWebView).map { WebKitPagePolicy.consumeContextPopup(deadline: &$0.contextPopupDeadline, now: ProcessInfo.processInfo.systemUptime) } ?? false
+    let gesture = contextGesture || action.responds(to: NSSelectorFromString("_isUserInitiated")) && (action.value(forKey: "_isUserInitiated") as? Bool) == true
+    let origin = Origins.of(action.sourceFrame.securityOrigin)
+    if !gesture && !WebKitHub.shared.stores.allowsPopups(profile: profile, origin: origin) {
+      let id = UUID().uuidString
+      blockedPopups[id] = (action.request, origin)
+      emit("popupBlocked", ["id": id, "url": action.request.url?.absoluteString ?? "", "origin": origin])
+      return nil
+    }
+    let child = WebKitWebView(frame: .zero, configuration: configuration)
+    child.navigationDelegate = WebKitPopupPolicy.shared
+    let id = WebKitHub.shared.transfers.offer(child)
+    let flags = action.modifierFlags
+    let popup = windowFeatures.width != nil || windowFeatures.height != nil
+    let disposition = flags.contains(.command) || action.buttonNumber == 2 ? (flags.contains(.shift) ? "foreground" : "background") : popup ? "popup" : "foreground"
+    emit("openWindow", ["url": action.request.url?.absoluteString ?? "", "disposition": disposition, "adoptId": id, "userGesture": gesture])
+    return child
+  }
+
+  func webViewDidClose(_ webView: WKWebView) {
+    emit("windowClose")
+  }
+}

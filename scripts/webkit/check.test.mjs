@@ -99,3 +99,18 @@ test("cleanup reports modal text even after the app has exited", async () => {
     assert.equal(existsSync(browser.foregroundLock),false);
   } finally {rmSync(data,{recursive:true,force:true});}
 });
+
+
+test("page fixtures keep auth, popup, and hang cases local", async () => {
+  const fixture = await startFixture();
+  try {
+    const rejected = await fetch(fixture.origin + "/auth");
+    assert.equal(rejected.status, 401);
+    assert.match(rejected.headers.get("www-authenticate"), /Basic/);
+    const accepted = await fetch(fixture.origin + "/auth", {headers:{Authorization:"Basic " + Buffer.from("fixture:correct").toString("base64")}});
+    assert.equal(accepted.status, 200);
+    assert.match(await (await fetch(fixture.origin + "/popup-auto")).text(), /setTimeout.*window.open/);
+    assert.match(await (await fetch(fixture.origin + "/loop")).text(), /while\(true\)/);
+    await assert.rejects(fetch(fixture.refusedOrigin));
+  } finally { await fixture.close(); }
+});
