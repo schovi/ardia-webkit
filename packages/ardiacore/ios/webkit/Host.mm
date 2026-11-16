@@ -2,11 +2,24 @@
 #import "../ArdiaChromeWindowHost.h"
 #import "../ArdiaLaunchConfig.h"
 #import <objc/runtime.h>
+#import <QuartzCore/QuartzCore.h>
 #import "../ArdiaFieldTiming.h"
 
 void ArdiaWebViewsSetFieldTiming(BOOL on) {}
 
 @implementation ArdiaHost (WebKitData)
++ (NSArray *)chromeWindows {
+  NSMutableArray *windows = [NSMutableArray array];
+  for (NSWindow *window in NSApp.windows) {
+    if (!window.contentViewController) continue;
+    [windows addObject:@{@"profile": @"", @"window": @(window.windowNumber), @"frame": NSStringFromRect(window.frame),
+      @"alpha": @(window.alphaValue), @"key": @(window.isKeyWindow), @"canBecomeKey": @(window.canBecomeKeyWindow),
+      @"visible": @(window.isVisible), @"parentWindow": @(window.parentWindow.windowNumber), @"chromeWindows": @0,
+      @"anchorBrowserId": @0, @"anyTabBrowserId": @0, @"ready": @YES, @"active": @(window.isMainWindow),
+      @"pageInsets": @[@0,@0,@0,@0], @"hosting": @YES, @"group": @"", @"hasRoot": @YES, @"translucent": @NO}];
+  }
+  return windows;
+}
 + (NSString *)dataDirectory {
   return [(ArdiaLaunchConfig.shared.dataDirectory ?: ArdiaLaunchConfig.shared.configDirectory) stringByAppendingPathComponent:@"WebKit"];
 }
@@ -43,3 +56,28 @@ NSView *ArdiaWindowRootView(NSWindow *window) { return window.contentViewControl
 NSValue *ArdiaTrafficLightsCenter(NSWindow *window) { return nil; }
 BOOL ArdiaTrafficLightsTrailing(NSWindow *window) { return NO; }
 BOOL ArdiaPerformReservedKey(NSEvent *event) { return NO; }
+
+@implementation ArdiaChromeWindowHost (Dev)
++ (NSString *)devAction:(NSString *)action window:(NSWindow *)window {
+  if (!ArdiaLaunchConfig.shared.testInstance || ![action hasPrefix:@"snapshotFrame:"]) return @"unsupported";
+  NSString *path = [action substringFromIndex:@"snapshotFrame:".length];
+  NSString *scratch = [ArdiaLaunchConfig.shared.dataDirectory stringByAppendingString:@"/"];
+  if (![path.stringByStandardizingPath hasPrefix:scratch]) return @"snapshot must stay in scratch data";
+  NSView *view = window.contentView;
+  CGFloat scale = window.backingScaleFactor;
+  NSBitmapImageRep *bitmap = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:nullptr pixelsWide:view.bounds.size.width*scale pixelsHigh:view.bounds.size.height*scale bitsPerSample:8 samplesPerPixel:4 hasAlpha:YES isPlanar:NO colorSpaceName:NSDeviceRGBColorSpace bytesPerRow:0 bitsPerPixel:0];
+  NSGraphicsContext *context = [NSGraphicsContext graphicsContextWithBitmapImageRep:bitmap];
+  if (!context || !view.layer) return @"no window layer";
+  CGContextRef cg = context.CGContext;
+  CGContextSetFillColorWithColor(cg, window.backgroundColor.CGColor);
+  CGContextFillRect(cg, CGRectMake(0,0,bitmap.pixelsWide,bitmap.pixelsHigh));
+  CGContextScaleCTM(cg, scale, scale);
+  if (view.isFlipped || view.layer.geometryFlipped) {
+    CGContextTranslateCTM(cg, 0, view.bounds.size.height);
+    CGContextScaleCTM(cg, 1, -1);
+  }
+  [view.layer renderInContext:cg];
+  NSData *png = [bitmap representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
+  return [png writeToFile:path atomically:YES] ? @"ok" : @"write failed";
+}
+@end

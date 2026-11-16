@@ -11,7 +11,6 @@
 @implementation ArdiaHost
 + (BOOL )isStarted { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
 + (NSDictionary<NSString *, id> *)engineInfo { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
-+ (NSArray<NSDictionary<NSString *, id> *> *)chromeWindows { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
 + (NSArray<NSDictionary<NSString *, id> *> *)displayMediaSources { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
 + (BOOL )screenRecordingAllowed { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
 + (BOOL)requestScreenRecording { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
@@ -366,10 +365,6 @@
 + (BOOL)windowShouldClose:(NSWindow *)window { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
 + (BOOL)windowFullScreenIsForPage:(NSWindow *)window { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
 + (BOOL)userSeesWindow:(nullable NSWindow *)window { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
-@end
-
-@implementation ArdiaChromeWindowHost (Dev)
-+ (nullable NSString *)devAction:(NSString *)action window:(NSWindow *)window { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
 @end
 
 @implementation ArdiaChromeWindowHost (DevFullScreenProbe)
