@@ -86,6 +86,8 @@ Not done. Each line is covered by a step below:
    - `favicon`, `history`, `history-delete`, `history-private`, `search`: the data rows.
    - `native`: the `clang++` self-check `packages/ardiacore/tests/webkit-data.test.mm`.
    - `js`: `pnpm --filter @ardia/browser test` and `typecheck`. The known failure `apps/browser/src/state/telemetry/watch.test.mjs` (fixture date expired, fails on plain `v0.2.46` too) is listed by name as the only allowed failure.
+   - `settings-tour`: opens every available Settings pane and guards against app exits, blank pane roots, and logged JS exceptions.
+
 3. `check` writes `docs/webkit/standins.md`: every stand-in method, grouped by class, with a mark for those hit during the run and the hit count over all launches.
 4. All launches hidden, all data in a scratch dir the script creates and removes. Rows use a local fixture server, except `favicon` and `search`, which need the network: on no network they report `skipped (offline)`, never pass.
 
@@ -327,7 +329,7 @@ Each of these is its own decision after the steps above.
 | Step | State | Commits | Notes |
 |---|---|---|---|
 | 0. Checks in the repo | complete | `5722bc3cc` | 20 rows pass; verified without old scratch folders; intentional failure detected. |
-| 1. Nothing talks to upstream | blocked | `45bedc4d5` | Release rebuilt; 20 baseline rows pass. Privacy crashes in the unchanged content-blocker stand-in before the new request check reaches 90 seconds. |
+| 1. Nothing talks to upstream | done | `45bedc4d5`, `0b349a25c` | Release rebuilt; 22 rows pass, including 90-second request observation and 14 Settings panes. Reader defaults documented; setters stay stand-ins. |
 | 2. Window and keyboard | not started | | |
 | 3. Page features | not started | | |
 | 4. Site and browser settings | not started | | |
