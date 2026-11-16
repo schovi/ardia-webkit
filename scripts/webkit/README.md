@@ -1,0 +1,83 @@
+# WebKit checks
+
+Run from this checkout on an Apple Silicon Mac with Xcode. The entry points select Node 24 and pnpm 11.1.3 through `mise`.
+
+## Build
+
+For a checkout without installed packages or Pods:
+
+```sh
+mise exec node@24 pnpm@11.1.3 -- pnpm install
+mise exec node@24 pnpm@11.1.3 -- scripts/agent/locked pod -- env -u GEM_HOME -u GEM_PATH -u RUBYOPT LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 /opt/homebrew/bin/pod install --project-directory=apps/browser/macos
+```
+
+```sh
+scripts/webkit/build
+scripts/webkit/check
+```
+
+`build` runs Release through the Xcode lock, bundles JS, signs ad hoc, and replaces `apps/browser/build-webkit/Ardia-WebKit-Release.zip`. It prints the app path and SHA-256. Its log is `apps/browser/build-webkit/build-webkit.log`.
+
+`check` rebuilds by default. It prints one result table and exits zero only when every selected row passes. It removes its scratch folder, downloads, snapshots, logs, fixture server, and app instances, including after a failed row.
+
+## Run one row
+
+```sh
+scripts/webkit/check --no-build --only smoke-g
+scripts/webkit/check --help
+```
+
+Each row starts with fresh data. Rows that test persistence relaunch on their own data directory. No row depends on another row or an old `/tmp` folder.
+
+`favicon` uses Python.org. `search` uses Google. A failed network preflight reports `skipped (offline)` and exits nonzero. A native failure after successful preflight fails the row.
+
+`js` runs the script tests, the browser suite, and typecheck. It permits only the named, expired-date fixture in `src/state/telemetry/watch.test.mjs`. It rejects other failures, missing totals, cancelled tests, and skipped tests.
+
+Every run regenerates `docs/webkit/standins.md` for its selected rows. Counts describe logged hits over all launches, not invocation counts. Run the full check before committing that report; a single-row run has different coverage.
+
+## Add a row
+
+Add a function to `rows` in `rows.mjs`, returning a short evidence string. Throw an assertion error on failure. Rows receive `browser`, `fixture`, and `scratch`. New rows start a browser by default; add nonbrowser rows to the exclusion list in `browserRows`. Use the local fixture in `fixture.mjs` for page content. Add JS helper cases to `check.test.mjs`.
+
+Use `browser.open`, `activate`, `page`, `execute`, `type`, `until`, and `restart`. `page` runs in WebKit's isolated script world; DOM state is shared. `execute` runs in the page's world. Check the resulting page or state, not only whether the call returned.
+
+The blocker row uses a local script path matching the bundled EasyList `\.ar/ads/` rule. A control script must load, the blocked count must rise, and the server must receive no ad request.
+
+## How the harness reaches Release
+
+Chromium's CDP listener is absent. `Browser.launch()` uses hidden `open -g -n`, a fresh `ARDIA_DATA_DIR`, `ARDIA_BACKGROUND=1`, the file keychain, and `ARDIA_INSTANCE=downloadsDir=<scratch>/downloads`.
+
+An empty `<data>/perf-probe` file must exist **before launch**. In an isolated Release instance it enables `startDevHarness` and the omnibox drivers. `onboarding.json` marks setup complete.
+
+`Browser` reuses `scripts/lib/instance.mjs`: `app.eval(body)` writes an identified `dev-eval.js` file under the data directory. The app reads it and writes `dev-eval-result.json`. The body receives `ac` and must return its result or promise. `app.ready()` retries because the watcher ignores the script present when it starts. Native calls such as `ac.shell.windowIds()` return promises. The command bar uses the hero driver on a New Tab page and the panel driver on a loaded page. Select the registered driver for the window instead of assuming `:panel`.
+
+WebKit evaluation must answer through `post("result", JSON.stringify(value))`. `browser.page(id, expression)` supplies that protocol. All polls have deadlines and fail if the app dies.
+
+## Take an in-process snapshot
+
+The Release shell snapshot module is absent. The existing `windows.list` and `windows.dev` engine calls work instead. `browser.snapshot()` finds a native window with `hasRoot`, sends `snapshotFrame:<path>`, and verifies the PNG. The path must stay inside that instance's data directory.
+
+This standalone example keeps the scratch directory so you can inspect the PNG. It stops the app and server. Remove the printed directory after inspection.
+
+```sh
+mise exec node@24 pnpm@11.1.3 -- node --input-type=module <<'NODE'
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { Browser } from './scripts/webkit/support.mjs';
+import { startFixture } from './scripts/webkit/fixture.mjs';
+const data = mkdtempSync(join(tmpdir(), 'ardia-webkit-snapshot-'));
+const fixture = await startFixture();
+const browser = new Browser(data, fixture, []);
+try {
+  await browser.launch();
+  await browser.open('/first');
+  await browser.snapshot();
+  console.log(join(data, 'window.png'));
+} finally {
+  try { await browser.stop(); } finally { await fixture.close(); }
+}
+NODE
+```
+
+Snapshots render the app's layers without WindowServer. They work while the screen is locked. Use a visible-window check later for keyboard focus and window controls.
