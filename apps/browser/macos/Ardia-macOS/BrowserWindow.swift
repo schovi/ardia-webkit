@@ -1,6 +1,9 @@
 import AppKit
+import ArdiaCore
+import ArdiaShell
 
 final class BrowserWindow: NSWindow {
+  private var restoredFrame: NSRect?
   private let trafficLightInset = NSPoint(x: 16, y: 20)
 
   init() {
@@ -27,6 +30,25 @@ final class BrowserWindow: NSWindow {
     layoutTrafficLights()
   }
 
+  override func toggleFullScreen(_ sender: Any?) {
+    guard LaunchConfig.shared.background else { return super.toggleFullScreen(sender) }
+    let entering = restoredFrame == nil
+    let center = NotificationCenter.default
+    center.post(name: entering ? NSWindow.willEnterFullScreenNotification : NSWindow.willExitFullScreenNotification, object: self)
+    if entering {
+      restoredFrame = frame
+      if let screen { setFrame(screen.frame, display: true) }
+    } else if let saved = restoredFrame {
+      setFrame(saved, display: true)
+      restoredFrame = nil
+    }
+    center.post(name: entering ? NSWindow.didEnterFullScreenNotification : NSWindow.didExitFullScreenNotification, object: self)
+  }
+
+  override func performClose(_ sender: Any?) {
+    if ArdiaChromeWindowHost.windowShouldClose(self) { close() }
+  }
+
   override func layoutIfNeeded() {
     super.layoutIfNeeded()
     layoutTrafficLights()
@@ -39,7 +61,10 @@ final class BrowserWindow: NSWindow {
           let zoom = standardWindowButton(.zoomButton),
           let container = close.superview?.superview else { return }
 
-    let height = close.frame.height + trafficLightInset.y * 2
+    let requested = ArdiaTrafficLightsCenter(self)?.pointValue
+    let center = requested ?? NSPoint(x: trafficLightInset.x + close.frame.width / 2, y: trafficLightInset.y + close.frame.height / 2)
+    let x = ArdiaTrafficLightsTrailing(self) ? frame.width - center.x : center.x
+    let height = center.y * 2
     var frame = container.frame
     frame.size.height = height
     frame.origin.y = self.frame.height - height
@@ -48,7 +73,7 @@ final class BrowserWindow: NSWindow {
     let spacing = mini.frame.minX - close.frame.minX
     for (i, button) in [close, mini, zoom].enumerated() {
       button.setFrameOrigin(NSPoint(
-        x: trafficLightInset.x + CGFloat(i) * spacing,
+        x: x - button.frame.width / 2 + CGFloat(i) * spacing,
         y: (height - button.frame.height) / 2
       ))
     }

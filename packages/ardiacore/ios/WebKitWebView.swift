@@ -73,11 +73,6 @@ final class WebKitWebView: WKWebView {
 
   override func willOpenMenu(_ menu: NSMenu, with event: NSEvent) {
     super.willOpenMenu(menu, with: event)
-    if LaunchConfig.shared.background {
-      NSLog("[webkit] context menu (background mode, not shown): %@", menu.items.map(\.title).joined(separator: ", "))
-      menu.removeAllItems()
-      return
-    }
     let renames = [
       "WKMenuItemIdentifierOpenLinkInNewWindow": "Open Link in New Tab",
       "WKMenuItemIdentifierOpenImageInNewWindow": "Open Image in New Tab",
@@ -86,6 +81,22 @@ final class WebKitWebView: WKWebView {
     ]
     for item in menu.items {
       if let id = item.identifier?.rawValue, let title = renames[id] { item.title = title }
+    }
+    if LaunchConfig.shared.background {
+      let items = menu.items.map { ["title": $0.title, "enabled": $0.isEnabled] as [String: Any] }
+      if let directory = LaunchConfig.shared.dataDirectory {
+        let path = URL(fileURLWithPath: directory).appendingPathComponent("context-menu.json")
+        try? JSONSerialization.data(withJSONObject: items).write(to: path)
+        let pick = path.appendingPathExtension("pick")
+        if let title = try? String(contentsOf: pick, encoding: .utf8),
+           let item = menu.items.first(where: { $0.title == title && $0.isEnabled }), let action = item.action {
+          NSApp.sendAction(action, to: item.target, from: item)
+        }
+        try? FileManager.default.removeItem(at: pick)
+      }
+      NSLog("[webkit] context menu (background mode, not shown): %@", menu.items.map(\.title).joined(separator: ", "))
+      menu.removeAllItems()
+      DispatchQueue.main.async { menu.cancelTrackingWithoutAnimation() }
     }
   }
 }

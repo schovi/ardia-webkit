@@ -41,9 +41,6 @@
 + (BOOL)showAutofillSuggestions:(NSString *)tabId passwords:(BOOL)passwords { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
 + (int)chromeTabIdOfTab:(NSString *)tabId { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
 + (void)cliTabTargets:(NSArray<NSString *> *)tabIds completion:(void (^)(NSDictionary<NSString *, id> *targets))completion { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (completion) completion({}); }
-+ (void (^)(void))quitCancelledHandler { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
-+ (void)setQuitCancelledHandler:(void (^)(void))value { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (value) value(); }
-+ (void)menuShortcutsChanged { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); }
 + (void)resolvePermission:(NSString *)requestId result:(NSString *)result remember:(BOOL)remember { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); }
 @end
 
@@ -324,7 +321,6 @@
 @end
 
 @implementation ArdiaChromeWindowHost
-+ (CGFloat )windowCornerRadius { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
 + (nullable NSWindow *)makeWindowForProfile:(NSString *)profile { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
 + (nullable NSWindow *)makeWindowForProfile:(NSString *)profile chromeWindow:(nullable NSString *)chromeWindow { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
 + (nullable NSWindow *)makeWindowForProfile:(NSString *)profile
@@ -334,24 +330,11 @@
 + (void)forgetLaunchPictures { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); }
 + (BOOL)takeDismissedAppWindow:(NSString *)appWindow { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
 + (void)embedRootView:(NSView *)root inWindow:(NSWindow *)window { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); }
-+ (nullable NSView *)rootViewOfWindow:(NSWindow *)window { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
-+ (nullable NSView *)embeddedRootOfWindow:(NSWindow *)window { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
 + (Class )contentViewClass { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
-+ (void)removeRootViewOfWindow:(NSWindow *)window { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); }
-+ (void)setTrafficLightsCenter:(nullable NSValue *)center trailing:(BOOL)trailing inWindow:(NSWindow *)window { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); }
-+ (void)moveTrafficLightsCenter:(nullable NSValue *)center trailing:(BOOL)trailing inWindow:(NSWindow *)window { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); }
-+ (void)closeWindow:(NSWindow *)window { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); }
 + (void)showProfile:(NSString *)profile inWindow:(NSWindow *)window { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); }
 + (void)prepareProfiles:(NSArray<NSString *> *)profiles forWindow:(NSWindow *)window { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); }
 + (void (^)(NSWindow *from, NSWindow *to))swappedHandler { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
 + (void)setSwappedHandler:(void (^)(NSWindow *from, NSWindow *to))value { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); if (value) value({}, {}); }
-+ (BOOL (^)(NSWindow *window))shouldCloseHandler { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
-+ (void)setShouldCloseHandler:(BOOL (^)(NSWindow *window))value { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); }
-+ (BOOL (^)(NSWindow *window, NSEvent *event))refusesUnhandledKeyHandler { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
-+ (void)setRefusesUnhandledKeyHandler:(BOOL (^)(NSWindow *window, NSEvent *event))value { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); }
-+ (BOOL)windowShouldClose:(NSWindow *)window { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
-+ (BOOL)windowFullScreenIsForPage:(NSWindow *)window { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
-+ (BOOL)userSeesWindow:(nullable NSWindow *)window { static dispatch_once_t once; dispatch_once(&once, ^{ NSLog(@"[standin] %s", __PRETTY_FUNCTION__); }); return {}; }
 @end
 
 @implementation ArdiaChromeWindowHost (DevFullScreenProbe)

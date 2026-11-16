@@ -142,6 +142,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
       view.observe(\.serverTrust) { [weak self] _, _ in self?.emitSecurity() },
       view.observe(\.cameraCaptureState) { [weak self] _, _ in self?.emitMediaAccess() },
       view.observe(\.microphoneCaptureState) { [weak self] _, _ in self?.emitMediaAccess() },
+      observeFullScreen(view),
       view.observe(\.magnification) { [weak self] _, _ in self?.emitZoom() },
     ]
   }

@@ -36,6 +36,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property(class, nonatomic, copy, nullable) BOOL (^shouldCloseHandler)(NSWindow *window);
 @property(class, nonatomic, copy, nullable) BOOL (^refusesUnhandledKeyHandler)(NSWindow *window, NSEvent *event);
 + (BOOL)windowShouldClose:(NSWindow *)window;
++ (void)setPageFullScreen:(BOOL)fullScreen inWindow:(NSWindow *)window;
 + (BOOL)windowFullScreenIsForPage:(NSWindow *)window;
 + (BOOL)userSeesWindow:(nullable NSWindow *)window NS_SWIFT_NAME(userSees(_:));
 
@@ -44,8 +45,8 @@ NS_ASSUME_NONNULL_BEGIN
 extern NSNotificationName const ArdiaWindowSeenDidChange;
 
 NSView *_Nullable ArdiaWindowRootView(NSWindow *_Nullable window);
-NSValue *_Nullable ArdiaTrafficLightsCenter(NSWindow *_Nullable window);
-BOOL ArdiaTrafficLightsTrailing(NSWindow *_Nullable window);
+FOUNDATION_EXPORT NSValue *_Nullable ArdiaTrafficLightsCenter(NSWindow *_Nullable window);
+FOUNDATION_EXPORT BOOL ArdiaTrafficLightsTrailing(NSWindow *_Nullable window);
 FOUNDATION_EXPORT BOOL ArdiaPerformReservedKey(NSEvent *event);
 
 @interface ArdiaChromeWindowHost (Dev)

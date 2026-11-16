@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { APP, BUILD, run, sleep } from "./support.mjs";
 import { binaryOf, isAlive } from "../lib/instance.mjs";
 import { AD_PATH, DOWNLOAD, titleOf } from "./fixture.mjs";
+import { windowRows } from "./window-rows.mjs";
 import { settingsTour } from "./settings-tour.mjs";
 import { ALLOWED_TEST, assessTests } from "./report.mjs";
 
@@ -44,6 +45,7 @@ async function terminate(browser) {
 }
 
 export const rows = {
+  ...windowRows,
   "settings-tour": settingsTour,
   "no-upstream": async ({ browser, fixture }) => {
     const requests = () => existsSync(join(browser.data, "requests.jsonl")) ? readFileSync(join(browser.data, "requests.jsonl"), "utf8").trim().split("\n").filter(Boolean).map(JSON.parse) : [];
@@ -312,7 +314,11 @@ export const rows = {
     const executable = join(scratch, "native-check");
     await run("xcrun", ["clang++", "-std=c++20", "-fobjc-arc", "-fblocks", "-Wno-incomplete-implementation", "-framework", "AppKit", "-framework", "Security", "-lsqlite3",
       "packages/ardiacore/tests/webkit-data.test.mm", "packages/ardiacore/ios/ArdiaLaunchConfig.mm", ...["Store", "Network", "Favicons", "Services", "EngineBridge"].map((name) => `packages/ardiacore/ios/webkit/${name}.mm`), "-o", executable]);
-    return (await run(executable, [scratch], { env: { ARDIA_DATA_DIR: scratch, ARDIA_TEST: "networkRequests" } })).text.trim();
+    const windowExecutable = join(scratch, "window-check");
+    await run("xcrun", ["clang++", "-std=c++20", "-fobjc-arc", "-fblocks", "-Wno-incomplete-implementation", "-framework", "AppKit", "-framework", "WebKit", "-framework", "QuartzCore", "-framework", "Security", "-lsqlite3",
+      "packages/ardiacore/tests/webkit-window.test.mm", "packages/ardiacore/ios/ArdiaLaunchConfig.mm", ...["Host", "Store", "Network", "Services"].map(name => `packages/ardiacore/ios/webkit/${name}.mm`), "-o", windowExecutable]);
+    const windowResult = await run(windowExecutable, [], {env: {ARDIA_DATA_DIR:scratch}});
+    return (await run(executable, [scratch], { env: { ARDIA_DATA_DIR: scratch, ARDIA_TEST: "networkRequests" } })).text.trim()+"; "+windowResult.text.trim();
   },
   js: async ({ scratch }) => {
     await run(process.execPath, ["--test", "scripts/webkit/check.test.mjs"]);

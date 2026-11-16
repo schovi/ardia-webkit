@@ -101,3 +101,17 @@ NODE
 ```
 
 Snapshots render the app's layers without WindowServer. They work while the screen is locked. Use a visible-window check later for keyboard focus and window controls.
+
+## Window and keyboard checks
+
+Step 2 adds `type-page`, `type-omnibox`, `keys-page-focus`, `traffic-lights`, `close-window`, `full-screen`, `user-sees`, `profile-switch`, `swipe`, and `context-menu`.
+
+These rows dispatch AppKit events inside a hidden app. They do not prove system keyboard routing or real trackpad gestures. A blocked assertion stays FAIL and makes the command exit nonzero. In particular, `swipe` checks WebKit's gesture setting but fails until a person proves the gesture. `full-screen` checks simulated window notifications and saves a snapshot, then fails because background mode disables element full screen.
+
+The Release `windows.dev` hook accepts `state`, `key:<characters>|<keyCode>|<modifierFlags>`, `mouse:<down|up|rightdown|rightup>,<x>,<y>`, `resize:<width>,<height>`, `close`, and `fullscreen`. Mouse coordinates start at the window's top left. These hooks require an isolated test instance. `state` returns first responder, page frames, gesture settings, traffic-light centers, and visibility. Keys go through shortcut routing only with Command or Control; plain keys go to the first responder.
+
+The background app keeps an internal key-window reference without making a real window key. It never activates the app. Window full screen sends AppKit notifications and changes the frame without creating a Space. Foreground windows use AppKit's full-screen implementation. WebKit's `fullscreenState` updates the page's full-screen event and the host's page-full-screen flag.
+
+Background WebKit menus write `context-menu.json`. A title in `context-menu.json.pick` selects an enabled item through its native action. The app logs and dismisses the menu. The context-menu row verifies the new tab, copied URL, and separate page menu.
+
+Window rows retain `normal.png` and `fullscreen.png` in `apps/browser/build-webkit/step-2-evidence/`. Frame snapshots render the titlebar and cache traffic buttons separately because those buttons need not have layers. The native row also builds `packages/ardiacore/tests/webkit-window.test.mm` with AppKit, WebKit, and QuartzCore.

@@ -32,6 +32,22 @@ def method(signature):
         body.append('return {};')
     return signature + ' { ' + ' '.join(body) + ' }'
 
+implemented = set()
+for source in (root / 'webkit').glob('*.mm'):
+    if source.name == 'Standins.mm':
+        continue
+    for implementation in re.finditer(r'@implementation\s+(\w+)(.*?)@end', source.read_text(), re.S):
+        for signature in re.finditer(r'^[+-]\s*\([^\n]+?(?=\s*\{)', implementation[2], re.M):
+            parts = re.findall(r'(\w+)\s*:', signature[0])
+            selector = ':'.join(parts) + ':' if parts else re.search(r'\)\s*(\w+)', signature[0])[1]
+            implemented.add((implementation[1], selector))
+
+def real(owner, declaration):
+    declaration = re.sub(r'NS_SWIFT_NAME\([^;]*\)', '', declaration)
+    parts = re.findall(r'(\w+)\s*:', declaration)
+    selector = ':'.join(parts) + ':' if parts else re.search(r'\)\s*(\w+)', declaration)[1]
+    return (owner, selector) in implemented
+
 output = ['#import "../' + header + '.h"' for header in headers]
 for header in headers:
     text = (root / (header + '.h')).read_text()
@@ -53,12 +69,17 @@ for header in headers:
                     value_type, property_name = re.match(r'(.*?)\b(\w+)$', value.strip()).groups()
                 getter = re.search(r'getter\s*=\s*(\w+)', attributes)
                 if name != 'ArdiaHost' or property_name not in ('dataDirectory', 'chromeWindows'):
-                    output.append(method(f'{kind} ({value_type}){getter[1] if getter else property_name};'))
+                    declaration = f'{kind} ({value_type}){getter[1] if getter else property_name};'
+                    if not real(name, declaration): output.append(method(declaration))
                 if 'readonly' not in attributes:
-                    output.append(method(f'{kind} (void)set{property_name[0].upper() + property_name[1:]}:({value_type})value;'))
+                    declaration = f'{kind} (void)set{property_name[0].upper() + property_name[1:]}:({value_type})value;'
+                    if not real(name, declaration): output.append(method(declaration))
             elif not any(name == owner and declaration.startswith(prefix) for owner, prefix in [('ArdiaEngineBridge', '+ (void)call:'), ('ArdiaHost', '+ (BOOL)isPrivateProfile:'), ('ArdiaHost', '+ (NSString *)baseProfileOf:'), ('ArdiaServices', '+ (void)clearBrowsingData:'), ('ArdiaServices', '+ (void)searchEngineList:'), ('ArdiaContentBlocker', '+ (void)state:'), ('ArdiaServices', '+ (void)listExtensions:')]):
-                output.append(method(declaration))
+                if not real(name, declaration): output.append(method(declaration))
         output.append('@end')
 (root / 'webkit/Standins.mm').write_text('\n'.join(output) + '\n')
 assert 'completion({});' in method('+ (void)test:(void (^)(BOOL ok))completion;')
 assert 'completion({}, {});' in method('+ (void)test:(void (^)(id value, NSString *error))completion;')
+
+assert real("ArdiaChromeWindowHost", "+ (BOOL)userSeesWindow:(NSWindow *)window NS_SWIFT_NAME(userSees(_:));")
+assert not real("ArdiaChromeWindowHost", "+ (void)notImplemented;")

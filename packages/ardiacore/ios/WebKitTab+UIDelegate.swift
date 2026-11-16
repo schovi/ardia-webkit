@@ -2,6 +2,14 @@ import AppKit
 import WebKit
 
 extension WebKitTab {
+  func observeFullScreen(_ view: WKWebView) -> NSKeyValueObservation {
+    view.observe(\.fullscreenState) { [weak self] view, _ in
+      let fullScreen = view.fullscreenState != .notInFullscreen
+      if let window = self?.window { ArdiaChromeWindowHost.setPageFullScreen(fullScreen, in: window) }
+      self?.emit("fullscreen", ["fullscreen": fullScreen])
+    }
+  }
+
   @objc(_webViewFullscreenMayReturnToInline:)
   func webViewFullscreenMayReturnToInline(_ webView: WKWebView) {
     guard !closed, webView === self.webView else { return }
