@@ -63,10 +63,10 @@ export const generalRows = {
     {
       section: "Updates",
       rows: {
-        updateChecks: { advanced: true, title: "Check for updates automatically", keywords: ["update", "sparkle"] },
-        autoUpdate: { advanced: true, title: `Automatically update ${APP}`, description: "Downloads updates in the background and installs them the next time it restarts.", keywords: ["update", "install"] },
-        updateChannel: { title: "Update channel", description: "Nightly gets every fix first. Switching back to Stable never downgrades.", keywords: ["nightly", "stable", "beta"] },
-        checkNow: { title: "Check for updates now", keywords: ["version", "update", "about"] },
+        updateChecks: { shown: () => false, advanced: true, title: "Check for updates automatically", keywords: ["update", "sparkle"] },
+        autoUpdate: { shown: () => false, advanced: true, title: `Automatically update ${APP}`, description: "Downloads updates in the background and installs them the next time it restarts.", keywords: ["update", "install"] },
+        updateChannel: { shown: () => false, title: "Update channel", description: "Nightly gets every fix first. Switching back to Stable never downgrades.", keywords: ["nightly", "stable", "beta"] },
+        checkNow: { shown: () => false, title: "Check for updates now", keywords: ["version", "update", "about"] },
       },
     },
     {

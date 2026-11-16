@@ -130,7 +130,7 @@ export const COMMANDS = {
     },
   },
   share: { title: "Share…", symbol: "square.and.arrow.up", keys: ["⌥⌘S"], ...pageInLittleArdia },
-  reportProblem: { title: "Report a Problem…", keys: ["⌥⇧⌘I"], ...appWide },
+  reportProblem: { title: "Report a Problem…", ...appWide },
   keyboardShortcuts: { title: "Keyboard Shortcuts", symbol: "keyboard" },
   copyDiagnostics: { title: "Copy Diagnostics", ...appWide },
   toolTour: { title: "Tool Tour", ...appWide },

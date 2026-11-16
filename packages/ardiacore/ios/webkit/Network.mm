@@ -1,4 +1,33 @@
 #import "Network.h"
+#import "../ArdiaLaunchConfig.h"
+#import <objc/runtime.h>
+#include <fcntl.h>
+#include <unistd.h>
+
+@interface WebKitRequestObserver : NSURLProtocol
+@end
+
+@implementation WebKitRequestObserver
++ (BOOL)canInitWithRequest:(NSURLRequest *)request {
+  NSString *path = [ArdiaLaunchConfig.shared.dataDirectory stringByAppendingPathComponent:@"requests.jsonl"];
+  if ([ArdiaLaunchConfig.shared testFlag:@"networkRequests"] && [@[@"http", @"https"] containsObject:request.URL.scheme.lowercaseString]) {
+    NSData *json = [NSJSONSerialization dataWithJSONObject:@{@"pid": @(getpid()), @"url": request.URL.absoluteString} options:0 error:nil];
+    @synchronized(self) {
+      int file = open(path.fileSystemRepresentation, O_WRONLY | O_CREAT | O_APPEND, 0600);
+      if (file >= 0) {
+        write(file, json.bytes, json.length);
+        write(file, "\n", 1);
+        close(file);
+      }
+    }
+  }
+  return NO;
+}
++ (BOOL)canInitWithTask:(NSURLSessionTask *)task { return [self canInitWithRequest:task.currentRequest]; }
++ (NSURLRequest *)canonicalRequestForRequest:(NSURLRequest *)request { return request; }
+- (void)startLoading {}
+- (void)stopLoading {}
+@end
 
 @interface WebKitRequest : NSObject <NSURLSessionDataDelegate>
 @property NSURLSession *session;
@@ -25,6 +54,19 @@
   self.session = nil;
 }
 @end
+
+void WebKitObserveRequests(void) {
+  if (![ArdiaLaunchConfig.shared testFlag:@"networkRequests"]) return;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{
+    Method getter = class_getInstanceMethod(NSURLSessionConfiguration.class, @selector(protocolClasses));
+    IMP original = method_getImplementation(getter);
+    method_setImplementation(getter, imp_implementationWithBlock(^NSArray *(NSURLSessionConfiguration *configuration) {
+      NSArray *classes = ((NSArray *(*)(id, SEL))original)(configuration, @selector(protocolClasses));
+      return [NSOrderedSet orderedSetWithArray:[@[WebKitRequestObserver.class] arrayByAddingObjectsFromArray:classes ?: @[]]].array;
+    }));
+  });
+}
 
 NSURLSessionDataTask *WebKitFetch(NSString *text, NSUInteger limit, void (^done)(NSData *, NSHTTPURLResponse *, NSError *)) {
   NSURL *url = [NSURL URLWithString:text];

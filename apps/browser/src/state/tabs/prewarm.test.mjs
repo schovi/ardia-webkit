@@ -2,13 +2,15 @@ import assert from "node:assert/strict";
 import { mock, test } from "node:test";
 
 globalThis.__DEV__ = false;
-const { docs } = await import("../../test-native/index.ts");
+const { launch } = await import("../../test-native/index.ts");
+const { reloadLaunchConfigForTests } = await import("../../platform/launchConfig.ts");
 const ks = await import("../../platform/killSwitches.ts");
 
 mock.timers.enable({ apis: ["setTimeout"] });
 const preload = await import("./prewarm.ts");
 const setSwitches = (switches) => {
-  docs.set("switches-cache.json", JSON.stringify({ version: 1, switches }));
+  launch.switches = switches;
+  reloadLaunchConfigForTests();
   ks.reloadSwitches();
 };
 

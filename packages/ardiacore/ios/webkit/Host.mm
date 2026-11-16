@@ -5,6 +5,7 @@
 #import <QuartzCore/QuartzCore.h>
 #import "../ArdiaFieldTiming.h"
 #import "Store.h"
+#import "Network.h"
 
 void ArdiaWebViewsSetFieldTiming(BOOL on) {}
 
@@ -35,6 +36,7 @@ void ArdiaWebViewsSetFieldTiming(BOOL on) {}
 @implementation ArdiaHost (Launch)
 + (int)runWithArgc:(int)argc argv:(char **)argv delegate:(id<NSApplicationDelegate> (^)(void))makeDelegate {
   @autoreleasepool {
+    WebKitObserveRequests();
     NSApplication *application = NSApplication.sharedApplication;
     if (ArdiaLaunchConfig.shared.background) {
       [application setActivationPolicy:NSApplicationActivationPolicyProhibited];

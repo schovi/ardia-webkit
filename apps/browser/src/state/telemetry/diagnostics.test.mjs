@@ -26,6 +26,7 @@ globalThis.fetch = async () => ({ status: 503 });
 
 const client = await import("./client.ts");
 const { reportNativeCrashes } = await import("./errors.ts");
+const { flushLocal } = await import("./localStore.ts");
 const diagnostics = await import("./diagnostics.ts");
 const presses = await import("./tabPresses.ts");
 after(() => client.setSharing(false, "settings"));
@@ -157,7 +158,8 @@ test("a page process that goes away sends its reason, exit code, visibility and 
   for (let i = 0; i < 40; i++) diagnostics.trackPageProcessGone({ reason: "crashed", code: 11 }, false);
   await new Promise((resolve) => setTimeout(resolve, 1100));
   await client.saveQueueNow();
-  assert.equal(events("page_process_gone").length, 30);
+  flushLocal();
+  assert.equal(stub.telemetryLocal.records().filter(r => r.event === "page_process_gone").length, 30);
 });
 
 test("a lost-hover episode sends only its enums, flags and duration, capped per session", async () => {
@@ -192,7 +194,8 @@ test("a lost-hover episode sends only its enums, flags and duration, capped per 
   for (let i = 0; i < 30; i++) diagnostics.trackHoverLost(episode);
   await new Promise((resolve) => setTimeout(resolve, 1100));
   await client.saveQueueNow();
-  assert.equal(events("page_hover_lost").length, 20);
+  flushLocal();
+  assert.equal(stub.telemetryLocal.records().filter(r => r.event === "page_hover_lost").length, 20);
 });
 
 test("tab presses count clicks, drags turned into clicks, drags and presses that got no answer", async () => {

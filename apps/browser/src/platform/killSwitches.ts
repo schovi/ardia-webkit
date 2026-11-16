@@ -1,4 +1,4 @@
-import { readDocument, writeDocument } from "./documents";
+import { writeDocument } from "./documents";
 import { switchOverride } from "./launchConfig";
 
 type SwitchDef = {
@@ -84,7 +84,7 @@ type SwitchName = keyof typeof SWITCHES;
 type ExperimentName = keyof typeof EXPERIMENTS;
 
 const CACHE_DOC = "switches-cache.json";
-const SWITCHES_URL = "https://ardia.dev/switches.json";
+const SWITCHES_URL = "";
 const FETCH_TIMEOUT_MS = 5000;
 const MAX_BYTES = 4096;
 
@@ -107,11 +107,7 @@ let loaded = false;
 
 function load() {
   loaded = true;
-  try {
-    cached = parseSwitches(readDocument(CACHE_DOC));
-  } catch {
-    cached = {};
-  }
+  cached = {};
 }
 
 export function switchOn(name: SwitchName): boolean {
@@ -128,9 +124,10 @@ export function reloadSwitches() {
 
 let fetchedThisLaunch = false;
 
-type RefreshResult = "updated" | "failed" | "already";
+type RefreshResult = "updated" | "failed" | "already" | "disabled";
 
 export async function refreshSwitches(fetchFn: typeof fetch = fetch): Promise<RefreshResult> {
+  if (!SWITCHES_URL) return "disabled";
   if (fetchedThisLaunch) return "already";
   fetchedThisLaunch = true;
   if (!loaded) load();

@@ -31,7 +31,7 @@ export {
 export { playIntroMusic, setIntroMusicMuted, stopIntroMusic, type IntroMusicCues } from "../../platform/introMusic";
 export { PRESET_NAMES, PRESETS, presetFor, setsUpLikeBrowser, type BrowserSourceId, type Preset } from "./presets";
 
-export const STEPS: OnboardingStep[] = stepsForThisSurface(["intro", "source", "look", "layout", "tabs", "details", "searchPrivacy", "pins", "home", "outro"]);
+export const STEPS: OnboardingStep[] = stepsForThisSurface(["look"]);
 
 export const CUSTOMIZE_STEPS: readonly OnboardingStep[] = ["layout", "tabs", "details", "searchPrivacy", "pins", "home"];
 
@@ -281,7 +281,7 @@ const FRESH = {
   customizing: false,
 } satisfies Partial<OnboardingState>;
 
-export function startOnboarding(windowId?: string | null, step: OnboardingStep = "intro") {
+export function startOnboarding(windowId?: string | null, step: OnboardingStep = "look") {
   const id = resolveWindowId(useBrowser.getState(), windowId);
   if (!id) return;
   endToolTour();
@@ -298,7 +298,7 @@ export function redoOnboarding(windowId?: string | null) {
   useOnboarding.setState((s) => ({
     ...FRESH,
     windowId: id,
-    step: "source",
+    step: "look",
     sub: 0,
     leaving: false,
     tourAfter: false,
@@ -324,7 +324,7 @@ export function cancelOnboarding() {
 function resumeOnboarding(saved: Saved) {
   const id = resolveWindowId(useBrowser.getState(), null);
   if (!id) return;
-  const step = saved.step && saved.step !== "intro" && STEPS.includes(saved.step) ? saved.step : "source";
+  const step = saved.step && saved.step !== "intro" && STEPS.includes(saved.step) ? saved.step : "look";
   const source = saved.source ?? null;
   useOnboarding.setState((s) => ({
     ...FRESH,
@@ -338,7 +338,7 @@ function resumeOnboarding(saved: Saved) {
     tourAfter: false,
     session: s.session + 1,
   }));
-  const next = activeSteps().find((s) => STEPS.indexOf(s) >= STEPS.indexOf(step)) ?? "outro";
+  const next = activeSteps().find((s) => STEPS.indexOf(s) >= STEPS.indexOf(step)) ?? "look";
   if (next !== step) return goToStep(next);
   const sub = Math.min(saved.sub ?? 0, questionsFor(step).length - 1);
   if (sub > 0) useOnboarding.setState({ sub });

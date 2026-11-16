@@ -26,7 +26,7 @@ function clearOfBar(size: { width: number; height: number }, bar: Frame, height:
 }
 
 export function TelemetryAsk({ windowId, size, bar }: { windowId: string; size: { width: number; height: number }; bar: Frame }) {
-  const due = useTelemetry((s) => !s.decided && !s.askDone);
+  const due = false;
   const incognito = useWindow(windowId, (w) => w?.kind === "private");
   const onboarding = useOnboarding((s) => s.windowId !== null);
   const checkIn = useDefaultBrowserCheckIn(windowId).visible;

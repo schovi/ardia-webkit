@@ -18,7 +18,7 @@ scripts/webkit/check
 
 `build` runs Release through the Xcode lock, bundles JS, signs ad hoc, and replaces `apps/browser/build-webkit/Ardia-WebKit-Release.zip`. It prints the app path and SHA-256. Its log is `apps/browser/build-webkit/build-webkit.log`.
 
-`check` rebuilds by default. It prints one result table and exits zero only when every selected row passes. It removes its scratch folder, downloads, snapshots, logs, fixture server, and app instances, including after a failed row.
+`check` rebuilds by default. It prints one result table and exits zero only when every selected row passes. It removes its scratch folder, downloads, snapshots, logs, fixture server, and app instances, including after a failed row. The `no-upstream` row keeps copies of its evidence in `apps/browser/build-webkit/step-1-evidence/`.
 
 ## Run one row
 
@@ -34,6 +34,16 @@ Each row starts with fresh data. Rows that test persistence relaunch on their ow
 `js` runs the script tests, the browser suite, and typecheck. It permits only the named, expired-date fixture in `src/state/telemetry/watch.test.mjs`. It rejects other failures, missing totals, cancelled tests, and skipped tests.
 
 Every run regenerates `docs/webkit/standins.md` for its selected rows. Counts describe logged hits over all launches, not invocation counts. Run the full check before committing that report; a single-row run has different coverage.
+
+## Observe app requests
+
+`no-upstream` leaves onboarding incomplete and seeds telemetry sharing as enabled. It finishes the appearance screen through the harness, loads a fixture page, opens General and Privacy settings, and observes at least 90 seconds from launch through quit.
+
+`ARDIA_TEST=networkRequests` inserts a passive `NSURLProtocol` into session configurations before the app starts. A test-only replacement of the `protocolClasses` getter covers default, ephemeral, and shared sessions. It appends HTTP and HTTPS requests to `<data>/requests.jsonl`, with the app PID. It returns false so normal networking continues. WebKit's separate network process does not load this observer.
+
+The row requires a JS `fetch` and a native search request to reach the fixture and appear in the observation. It then rejects every observed origin except the fixture. A missing observer fails the row. This covers the app's URL Loading System, not arbitrary raw sockets or other processes.
+
+The row retains `requests.json`, `after-onboarding.png`, `settings-general.png`, and `settings-privacy.png` in the evidence directory. Its scratch directory and app still get removed. `browser.snapshot(name, windowNumber)` selects a specific native window when Settings is open.
 
 ## Add a row
 

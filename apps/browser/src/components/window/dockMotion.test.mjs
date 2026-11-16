@@ -299,12 +299,16 @@ test("Arc's layout keeps the address bar in a hidden sidebar (no toolbar on the 
   S().updateSettings({ addressBar: "toolbar" });
   assert.equal(addressBarInSidebar(S(), w), false, "Dia's layout: the toolbar's");
   S().updateSettings({ addressBar: "sidebar" });
-  stub.docs.set("switches-cache.json", JSON.stringify({ version: 1, switches: { sidebarSlide: false } }));
+  stub.launch.switches = { sidebarSlide: false };
+  const { reloadLaunchConfigForTests } = await import("../../platform/launchConfig.ts");
+  reloadLaunchConfigForTests();
   reloadSwitches();
   assert.equal(addressBarInSidebar(S(), w), false, "switch off: a hidden sidebar's bar moves to the card, as before");
   S().toggleSidebar(w);
   assert.equal(addressBarInSidebar(S(), w), true, "switch off, shown: in the sidebar");
   stub.docs.clear();
+  stub.launch.switches = {};
+  reloadLaunchConfigForTests();
   reloadSwitches();
 });
 

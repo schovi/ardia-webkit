@@ -37,7 +37,7 @@ NSArray<NSString *> *EngineTestKeys() {
 
 NSArray<NSString *> *AppTestKeys() {
   return @[
-    @"pipSelfTest", @"pipHover", @"fakeFullScreenMs", @"shadersKeyWindow", @"peekStrict", @"importSecret", @"importDiaBundleId", @"importDiaWindows",
+    @"networkRequests", @"pipSelfTest", @"pipHover", @"fakeFullScreenMs", @"shadersKeyWindow", @"peekStrict", @"importSecret", @"importDiaBundleId", @"importDiaWindows",
     @"cliInstallScript", @"legacySource", @"legacyCrashAfter", @"bangsUrl", @"onboarding", @"whatsNew", @"telemetry",
     @"liveMock", @"calendarFixture", @"appMenu", @"appDialog", @"loginsTimeout", @"screenRecording", @"systemLocationPermission",
   ];
@@ -274,7 +274,6 @@ BOOL SignedForDistribution() {
 
 - (BOOL)switchOn:(NSString *)name {
   if (NSNumber *said = _switches[name]) return said.boolValue;
-  if (NSNumber *cached = self.cachedSwitches[name]) return cached.boolValue;
   return YES;
 }
 

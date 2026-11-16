@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { APP, run, sleep } from "./support.mjs";
+import { APP, BUILD, run, sleep } from "./support.mjs";
 import { binaryOf, isAlive } from "../lib/instance.mjs";
 import { AD_PATH, DOWNLOAD, titleOf } from "./fixture.mjs";
 import { ALLOWED_TEST, assessTests } from "./report.mjs";
@@ -43,6 +43,56 @@ async function terminate(browser) {
 }
 
 export const rows = {
+  "no-upstream": async ({ browser, fixture }) => {
+    const requests = () => existsSync(join(browser.data, "requests.jsonl")) ? readFileSync(join(browser.data, "requests.jsonl"), "utf8").trim().split("\n").filter(Boolean).map(JSON.parse) : [];
+    const evidence = join(BUILD, "step-1-evidence");
+    mkdirSync(evidence, { recursive: true });
+    try {
+      const jsControl = fixture.origin + "/observe-js";
+      const nativeControl = fixture.origin + "/observe-native";
+      assert.equal(await browser.evaluate(`return fetch(${JSON.stringify(jsControl)}).then(r=>r.status);`), 200);
+      const native = await browser.evaluate(`return ac.engine.call("search.suggest",{profile:"",id:9001,url:${JSON.stringify(nativeControl)}});`);
+      assert.equal(native.status, 200);
+      for (const url of [jsControl, nativeControl]) {
+        assert.ok(requests().some(r => r.url === url && r.pid === browser.app.pid), `observer missed ${url}`);
+        assert.ok(fixture.hits.includes(new URL(url).pathname), "control never reached fixture");
+      }
+      await browser.until('const o=ac.onboarding.useOnboarding.getState();return o.windowId&&o.step==="look";');
+      assert.deepEqual(await browser.evaluate('return ac.onboarding.activeSteps();'), ["look"]);
+      await browser.evaluate('ac.onboarding.confirmAnswer("look",{},[]);return true;');
+      await browser.until('return ac.onboarding.onboardingCompletedAt()&&!ac.onboarding.useOnboarding.getState().windowId;');
+      const id = await browser.open("/after-onboarding");
+      assert.equal(await browser.page(id, "document.title"), titleOf("/after-onboarding"));
+      await browser.snapshot("after-onboarding.png");
+      copyFileSync(join(browser.data, "after-onboarding.png"), join(evidence, "after-onboarding.png"));
+      const before = await browser.evaluate('return ac.engine.call("windows.list").then(w=>w.map(w=>w.window));');
+      await browser.evaluate('ac.store.getState().updateSettings({showAdvancedSettings:true});ac.openSettings("general");return true;');
+      const settingsWindow = await browser.until(`return ac.engine.call("windows.list").then(w=>w.find(w=>w.hasRoot&&!${JSON.stringify(before)}.includes(w.window))?.window);`);
+      for (const pane of ["general", "privacy"]) {
+        await browser.evaluate(`ac.openSettings(${JSON.stringify(pane)});return true;`);
+        await sleep(1000);
+        await browser.snapshot(`settings-${pane}.png`, settingsWindow);
+        copyFileSync(join(browser.data, `settings-${pane}.png`), join(evidence, `settings-${pane}.png`));
+      }
+      while (Date.now() - browser.started < 90000) {
+        assert.ok(browser.app.alive, "app died during observation");
+        await sleep(Math.min(1000, 90000 - (Date.now() - browser.started)));
+      }
+      await browser.stop();
+      const observed = requests();
+      const urls = [...new Set(observed.map(r => r.url))];
+      assert.ok(observed.every(r => r.pid === browser.app.pid), "unexpected process in request observation");
+      assert.ok(urls.every(url => new URL(url).origin === fixture.origin), `non-fixture requests: ${JSON.stringify(urls)}`);
+      return `90 seconds; onboarding completed; JS and native controls observed; requests=${JSON.stringify(urls)}; snapshots=${evidence}`;
+    } catch (error) {
+      throw new Error(`${error.message}; observed requests=${JSON.stringify([...new Set(requests().map(r => r.url))])}`);
+    } finally {
+      writeFileSync(join(evidence, "requests.json"), JSON.stringify({ pid: browser.app.pid, milliseconds: Date.now() - browser.started, urls: [...new Set(requests().map(r => r.url))] }, null, 2) + "\n");
+      for (const [source, name] of [[browser.app.log, "app.log"], [join(browser.data, "dev-console.log"), "dev-console.log"]]) {
+        if (existsSync(source)) copyFileSync(source, join(evidence, name));
+      }
+    }
+  },
   chromium: async () => {
     const libraries = await run("otool", ["-L", binaryOf(APP)]);
     const linked = libraries.text.split("\n").filter((line) => /chromium/i.test(line)).length;
@@ -253,9 +303,9 @@ export const rows = {
   },
   native: async ({ scratch }) => {
     const executable = join(scratch, "native-check");
-    await run("xcrun", ["clang++", "-std=c++20", "-fobjc-arc", "-fblocks", "-Wno-incomplete-implementation", "-framework", "AppKit", "-lsqlite3",
-      "packages/ardiacore/tests/webkit-data.test.mm", ...["Store", "Network", "Favicons"].map((name) => `packages/ardiacore/ios/webkit/${name}.mm`), "-o", executable]);
-    return (await run(executable, [scratch])).text.trim();
+    await run("xcrun", ["clang++", "-std=c++20", "-fobjc-arc", "-fblocks", "-Wno-incomplete-implementation", "-framework", "AppKit", "-framework", "Security", "-lsqlite3",
+      "packages/ardiacore/tests/webkit-data.test.mm", "packages/ardiacore/ios/ArdiaLaunchConfig.mm", ...["Store", "Network", "Favicons"].map((name) => `packages/ardiacore/ios/webkit/${name}.mm`), "-o", executable]);
+    return (await run(executable, [scratch], { env: { ARDIA_DATA_DIR: scratch, ARDIA_TEST: "networkRequests" } })).text.trim();
   },
   js: async ({ scratch }) => {
     await run(process.execPath, ["--test", "scripts/webkit/check.test.mjs"]);

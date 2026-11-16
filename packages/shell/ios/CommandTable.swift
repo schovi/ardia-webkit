@@ -292,7 +292,6 @@ enum CommandTable {
     "tabSwitcher:forward": [("\u{9}", [.control])],
     "tabSwitcher:backward": [("\u{9}", [.control, .shift])],
     "share": [("s", [.option, .command])],
-    "reportProblem": [("i", [.option, .shift, .command])],
     "openFile": [("o", [.command])],
     "emailPageLocation": [("i", [.shift, .command])],
     "printWithSystemDialog": [("p", [.option, .command])],

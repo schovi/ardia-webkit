@@ -40,7 +40,8 @@ export async function run(command, args, { log, timeout = 600000, env = {}, allo
 }
 
 export class Browser {
-  constructor(directory, fixture, launches) {
+  constructor(directory, fixture, launches, options = {}) {
+    this.options = options;
     this.data = directory;
     this.fixture = fixture;
     this.launches = launches;
@@ -50,14 +51,16 @@ export class Browser {
     this.driver = null;
     mkdirSync(join(this.data, "downloads"), { recursive: true });
     writeFileSync(join(this.data, "perf-probe"), "");
-    writeFileSync(join(this.data, "onboarding.json"), JSON.stringify({ version: 1, completedAt: 1 }));
+    if (!this.options.onboarding) writeFileSync(join(this.data, "onboarding.json"), JSON.stringify({ version: 1, completedAt: 1 }));
     for (const file of ["dev-eval.js", "dev-eval-result.json"]) rmSync(join(this.data, file), { force: true });
+    if (this.options.observe) writeFileSync(join(this.data, "telemetry.json"), JSON.stringify({version:1,sharing:true,installId:"webkit-check",decidedAt:1,askDoneAt:1}));
     const binary = binaryOf(APP);
     const before = binaryPids(binary);
     const log = join(this.data, `launch-${this.launches.length + 1}.log`);
+    this.started = Date.now();
     const launched = spawnSync("open", ["-g", "-n", "--stdout", log, "--stderr", log,
       "--env", "ARDIA_BACKGROUND=1", "--env", `ARDIA_DATA_DIR=${this.data}`,
-      "--env", "ARDIA_TEST=keychain=file", "--env", `ARDIA_INSTANCE=downloadsDir=${join(this.data, "downloads")}`, APP], { encoding: "utf8", timeout: 10000 });
+      "--env", `ARDIA_TEST=keychain=file${this.options.observe ? ",networkRequests" : ""}`, "--env", `ARDIA_INSTANCE=downloadsDir=${join(this.data, "downloads")}`, APP], { encoding: "utf8", timeout: 10000 });
     assert.equal(launched.status, 0, launched.stderr);
     let pid;
     for (const end = Date.now() + 10000; Date.now() < end && !pid; await sleep(100)) {
@@ -126,9 +129,9 @@ export class Browser {
     assert.ok(existsSync(this.store), "profile store does not exist");
     return (await run("sqlite3", [this.store, query])).text.trim();
   }
-  async snapshot(name = "window.png") {
+  async snapshot(name = "window.png", windowNumber = null) {
     const path = join(this.data, name);
-    const result = await this.evaluate(`return ac.engine.call("windows.list").then(w=>ac.engine.call("windows.dev",{window:w.find(w=>w.hasRoot).window,action:${JSON.stringify("snapshotFrame:" + path)}}));`);
+    const result = await this.evaluate(`return ac.engine.call("windows.list").then(w=>ac.engine.call("windows.dev",{window:${windowNumber ?? "w.find(w=>w.hasRoot).window"},action:${JSON.stringify("snapshotFrame:" + path)}}));`);
     assert.equal(result, "ok");
     const png = readFileSync(path);
     assert.equal(png.subarray(0, 8).toString("hex"), "89504e470d0a1a0a");

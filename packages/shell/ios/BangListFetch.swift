@@ -4,6 +4,7 @@ import Carbon.HIToolbox
 import ExpoModulesCore
 
 final class BangListFetch: NSObject, URLSessionDataDelegate {
+  private static let enabled = false
   static let maxBytes = 5_000_000
   private static let listURL = URL(string: "https://services.helium.imput.net/bangs.json")!
   private static var running: Set<BangListFetch> = []
@@ -26,6 +27,7 @@ final class BangListFetch: NSObject, URLSessionDataDelegate {
   }
 
   static func start(etag: String?, done: @escaping (Result<[String: Any], Error>) -> Void) {
+    guard enabled else { return done(.failure(NSError(domain: "ArdiaBangs", code: 4, userInfo: [NSLocalizedDescriptionKey: "Bang refresh is disabled in this build"]))) }
     let config = URLSessionConfiguration.ephemeral
     config.httpCookieStorage = nil
     config.httpShouldSetCookies = false

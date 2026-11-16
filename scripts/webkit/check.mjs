@@ -50,7 +50,7 @@ async function check(options) {
       let result;
       current = null;
       try {
-        if (browserRows.has(name)) current = new Browser(join(scratch, name), fixture, launches);
+        if (browserRows.has(name)) current = new Browser(join(scratch, name), fixture, launches, name === "no-upstream" ? { onboarding: true, observe: true } : {});
         if (current) await current.launch();
         const evidence = await rows[name]({ browser: current, fixture, scratch });
         result = { row: name, status: "PASS", evidence };

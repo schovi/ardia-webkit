@@ -1,10 +1,12 @@
 #import "../ios/webkit/Store.h"
 #import "../ios/webkit/Network.h"
 #import "../ios/ArdiaEvents.h"
+#import "../ios/ArdiaLaunchConfig.h"
 #import "../ios/ArdiaHost.h"
 #import "../ios/ArdiaFavicons.h"
 #include <cstdio>
 #include <cstdlib>
+#include <unistd.h>
 
 static NSString *directory;
 static void Check(bool value, const char *name) {
@@ -21,6 +23,26 @@ int main(int argc, const char **argv) {
   @autoreleasepool {
     Check(argc == 2, "scratch directory argument");
     directory = @(argv[1]);
+    NSString *cache = [directory stringByAppendingPathComponent:@"switches-cache.json"];
+    [@"{\"version\":1,\"switches\":{\"sidebarSlide\":false}}" writeToFile:cache atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    ArdiaLaunchConfig *launch = [[ArdiaLaunchConfig alloc] initWithEnvironment:@{@"ARDIA_DATA_DIR": directory} signedForDistribution:^BOOL { return NO; }];
+    Check([launch switchOn:@"sidebarSlide"], "native switches ignore cached remote values");
+    ArdiaLaunchConfig *override = [[ArdiaLaunchConfig alloc] initWithEnvironment:@{@"ARDIA_SWITCHES": @"sidebarSlide=off"} signedForDistribution:^BOOL { return NO; }];
+    Check(![override switchOn:@"sidebarSlide"], "native switches keep explicit local overrides");
+    NSString *observed = [directory stringByAppendingPathComponent:@"requests.jsonl"];
+    WebKitObserveRequests();
+    Class observer = NSClassFromString(@"WebKitRequestObserver");
+    Check(observer != Nil, "request observer linked");
+    NSArray *protocols = NSURLSessionConfiguration.defaultSessionConfiguration.protocolClasses;
+    Check([protocols containsObject:observer], "observer installed in session configurations");
+    Check([NSSet setWithArray:protocols].count == protocols.count, "observer appears once after configuration copies");
+    for (NSString *url in @[@"http://127.0.0.1/control", @"https://example.invalid/control", @"file:///tmp/control"]) {
+      Check(![observer canInitWithRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:url]]], "observer never handles or blocks a request");
+    }
+    NSArray *lines = [[NSString stringWithContentsOfFile:observed encoding:NSUTF8StringEncoding error:nil] componentsSeparatedByString:@"\n"];
+    Check(lines.count == 3, "observer records only HTTP and HTTPS");
+    NSDictionary *entry = [NSJSONSerialization JSONObjectWithData:[lines[0] dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
+    Check([entry[@"url"] isEqual:@"http://127.0.0.1/control"] && [entry[@"pid"] intValue] == getpid(), "observer records URL and owning process");
     NSString *stores = [directory stringByAppendingPathComponent:NSUUID.UUID.UUIDString];
     Check(WebKitPrivateProfile(@"incognito:w1@work"), "private profile parser");
     Check(!WebKitPrivateProfile(@"work"), "regular profile parser");

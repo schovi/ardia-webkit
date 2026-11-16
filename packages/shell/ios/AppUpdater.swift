@@ -139,7 +139,7 @@ public final class AppUpdater: NSObject {
     return "\(version[..<range.lowerBound]) Nightly \(number)"
   }
 
-  static let aboutNotice = "© 2026 Mantra Patel. Ardia is free software under the GNU General Public License v3, with ABSOLUTELY NO WARRANTY. Its source is at the link below. It's built on Chromium and uBlock Origin, each under its own license."
+  static let aboutNotice = "© 2026 Mantra Patel. Ardia is free software under the GNU General Public License v3, with ABSOLUTELY NO WARRANTY. Its source is at the link below. It's built on WebKit and uBlock Origin, each under its own license."
 
   @objc public func showAbout(_ sender: Any?) {
     NSApp.orderFrontStandardAboutPanel(options: [.applicationVersion: Self.displayVersion, .credits: Self.aboutCredits])
@@ -171,7 +171,7 @@ public final class AppUpdater: NSObject {
   }
 
   private static var isOff: Bool {
-    LaunchConfig.shared.isolated && LaunchConfig.shared.instance("updateFeed") == nil
+    true
   }
 
   private lazy var userDriver = ChannelUserDriver(

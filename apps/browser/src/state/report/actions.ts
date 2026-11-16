@@ -1,6 +1,5 @@
 import { APP_INGEST_KEY, INGEST_KEY_HEADER } from "@ardia/core";
 import { cancelUploads, fileSize, onReportEvent, removeReportFile, uploadFile } from "../../platform/report";
-import { feedbackURLOverride } from "../../platform/launchConfig";
 import { confirm } from "../../platform/dialogs";
 import { readDocument, removeDocument, writeDocument } from "../../platform/documents";
 import { fileExists } from "../../platform/files";
@@ -30,10 +29,10 @@ import { SAVED_DRAFT_DOC, restoredDraft, savedDraftJson, savedDraftOf } from "./
 import { currentReport, initialReportState, patchDraft, patchReport, useReportSheet, type ReportSheetState } from "./store";
 import { isBusy, sendReport, type UploadDeps, type UploadState } from "./upload";
 
-export const FEEDBACK_URL = "https://ardia.dev/api/feedback";
+export const FEEDBACK_URL = "";
 const POST_TIMEOUT_MS = 30_000;
 
-export const feedbackEndpoint = () => feedbackURLOverride() ?? FEEDBACK_URL;
+export const feedbackEndpoint = () => FEEDBACK_URL;
 
 let identity: ReportIdentity | null = null;
 let cancelled = false;
@@ -72,7 +71,7 @@ function restoreDraftOnce(): { recording: boolean } | null {
 }
 
 export function openReport(windowId: string | null, source: "menu" | "check_in" = "menu") {
-  if (!windowId) return;
+  if (!FEEDBACK_URL || !windowId) return;
   if (currentReport().recording.phase === "recording") return;
   const restored = restoreDraftOnce();
   if (currentReport().sent) resetReport();
@@ -198,6 +197,7 @@ export const mayStartSending = (s: ReportSheetState) =>
   !isBusy(s.upload) && s.recording.phase !== "recording" && s.recording.phase !== "saving" && s.trace.phase !== "tracing" && s.trace.phase !== "saving";
 
 export async function sendCurrentReport() {
+  if (!feedbackEndpoint()) return;
   const s = currentReport();
   if (!mayStartSending(s)) return;
   const problems = draftProblems(s.draft);

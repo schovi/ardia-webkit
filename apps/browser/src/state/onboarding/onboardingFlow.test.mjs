@@ -8,6 +8,7 @@ import {
   confirmAnswer,
   customizeMore,
   finishOnboarding,
+  dismissOnboarding,
   onboardingCompletedAt,
   previewLive,
   redoOnboarding,
@@ -23,32 +24,28 @@ const S = () => useBrowser.getState();
 const O = () => useOnboarding.getState();
 const settle = () => useOnboarding.setState({ windowId: null, leaving: false, redo: false, customizing: false });
 
-test("the default path is three steps, whatever browser you come from", () => {
+test("onboarding has one appearance screen and finishes without import or upstream prompts", () => {
   const id = S().createWindow();
-  for (const source of [null, "fresh", "chrome", "safari", "arc", "dia"]) {
-    startOnboarding(id, "source");
-    chooseSource(source);
-    assert.deepEqual(activeSteps().filter((s) => s !== "intro"), ["source", "look", "outro"], String(source));
-  }
+  startOnboarding(id);
+  assert.equal(O().step, "look");
+  assert.deepEqual(activeSteps(), ["look"]);
+  confirmAnswer("look", { appearance: "dark" }, ["Dark appearance"]);
+  assert.ok(onboardingCompletedAt());
+  assert.equal(O().leaving, true);
+  dismissOnboarding(O().session);
+  assert.equal(O().windowId, null);
+  assert.equal(S().settings.appearance, "dark");
   settle();
 });
 
-test("Customize more adds the detailed steps after look and comes back to the last step", () => {
+test("skipping the appearance screen reaches a usable browser", () => {
   const id = S().createWindow();
-  startOnboarding(id, "source");
-  chooseSource("arc");
-  confirmAnswer("source", sourcePatch(), []);
-  assert.equal(O().step, "look");
-  confirmAnswer("look", {}, []);
-  assert.equal(O().step, "outro");
-  customizeMore();
-  assert.equal(O().step, "layout");
-  assert.deepEqual(activeSteps().filter((s) => s !== "intro"), ["source", "look", "layout", "tabs", "details", "searchPrivacy", "pins", "home", "outro"]);
-  for (const step of ["layout", "tabs", "details", "searchPrivacy", "pins", "home"]) {
-    assert.equal(O().step, step);
-    skipStep();
-  }
-  assert.equal(O().step, "outro");
+  startOnboarding(id);
+  skipStep();
+  assert.ok(onboardingCompletedAt());
+  dismissOnboarding(O().session);
+  assert.equal(O().windowId, null);
+  assert.ok(S().windows[id]);
   settle();
 });
 
@@ -57,7 +54,7 @@ test("redo starts from the current settings, keeps them unless a new browser is 
   S().updateSettings({ appearance: "dark", searchEngine: "kagi", newTabOpens: "page", addressBar: "toolbar" });
   const completed = onboardingCompletedAt();
   assert.equal(redoOnboarding(id), id);
-  assert.equal(O().step, "source");
+  assert.equal(O().step, "look");
   assert.equal(O().redo, true);
   const now = resolveDraft(["appearance", "searchEngine", "addressBar"], O().draft, draftPreset(O()), S().settings, []);
   assert.deepEqual(now, { appearance: "dark", searchEngine: "kagi", addressBar: "toolbar" });

@@ -15,7 +15,6 @@ const reset = () => {
   ks.reloadSwitches();
   ks.resetRefreshForTests();
 };
-const answer = (body, { ok = true } = {}) => async () => ({ ok, text: async () => (typeof body === "string" ? body : JSON.stringify(body)) });
 const file = (switches) => ({ version: 1, switches });
 
 test("at most 8 live switches, each on by default with an owner and a removal date still ahead", () => {
@@ -42,25 +41,13 @@ test("the site's switches.json is a version 1 file naming only switches the app 
   assert.ok(JSON.stringify(site).length < 4096);
 });
 
-test("a cached value is read synchronously; unknown names and non-booleans are ignored", () => {
+test("cached remote values never change built-in defaults", () => {
   reset();
-  docs.set("switches-cache.json", JSON.stringify(file({ sidebarSlide: false, newTabPrewarm: "no", gone: false, lazySidebarRows: 0 })));
-  assert.equal(ks.switchOn("sidebarSlide"), false);
-  assert.equal(ks.switchOn("newTabPrewarm"), true);
-  assert.equal(ks.switchOn("lazySidebarRows"), true);
-  reset();
-  docs.set("switches-cache.json", "not json");
-  assert.equal(ks.switchOn("sidebarSlide"), true);
-});
-
-test("an ARDIA_SWITCHES value from the launch config wins over the cache", () => {
-  reset();
-  docs.set("switches-cache.json", JSON.stringify(file({ sidebarSlide: false, lazySidebarRows: false })));
-  launch.switches = { sidebarSlide: true, lazySidebarRows: false, newTabPrewarm: false };
+  docs.set("switches-cache.json", JSON.stringify(file(Object.fromEntries(names.map(name => [name, false])))));
+  for (const name of names) assert.equal(ks.switchOn(name), true);
+  launch.switches = { sidebarSlide: false };
   reloadLaunchConfigForTests();
-  assert.equal(ks.switchOn("sidebarSlide"), true);
-  assert.equal(ks.switchOn("lazySidebarRows"), false);
-  assert.equal(ks.switchOn("newTabPrewarm"), false);
+  assert.equal(ks.switchOn("sidebarSlide"), false);
   reset();
 });
 
@@ -79,74 +66,20 @@ test("experiments are off unless ARDIA_SWITCHES turns them on, and don't count a
   reset();
 });
 
-test("a fetch asks for the plain URL (no cookies, no query), saves the answer, and applies it now only to a live switch", async () => {
+test("refresh never fetches or overwrites the cache, including repeated launches", async () => {
   reset();
-  let asked;
-  const fetchFn = async (url, init) => {
-    asked = { url, init };
-    return answer(file({ sidebarSlide: false, lazySidebarRows: false }))();
-  };
-  assert.equal(await ks.refreshSwitches(fetchFn), "updated");
-  assert.equal(asked.url, "https://ardia.dev/switches.json");
-  assert.equal(asked.init.credentials, "omit");
-  assert.equal(asked.init.headers, undefined);
-  assert.ok(!asked.url.includes("?"));
-  assert.equal(ks.switchOn("sidebarSlide"), false);
-  assert.equal(ks.switchOn("lazySidebarRows"), true);
-  ks.reloadSwitches();
-  assert.equal(ks.switchOn("sidebarSlide"), false);
-  assert.equal(ks.switchOn("lazySidebarRows"), false);
-});
-
-test("at most one fetch a launch", async () => {
-  reset();
-  let n = 0;
-  const fetchFn = async () => (n++, answer(file({}))());
-  assert.equal(await ks.refreshSwitches(fetchFn), "updated");
-  assert.equal(await ks.refreshSwitches(fetchFn), "already");
-  assert.equal(n, 1);
-});
-
-test("a switch the file stops naming goes back on (staleness: the cache follows the file, not the first answer)", async () => {
-  reset();
-  await ks.refreshSwitches(answer(file({ sidebarSlide: false })));
-  assert.equal(ks.switchOn("sidebarSlide"), false);
-  ks.resetRefreshForTests();
-  await ks.refreshSwitches(answer(file({})));
-  assert.equal(ks.switchOn("sidebarSlide"), true);
-  ks.reloadSwitches();
-  assert.equal(ks.switchOn("sidebarSlide"), true);
-});
-
-test("offline, an error, an odd answer or a slow one keeps the cached value (or the default)", async () => {
-  for (const [label, fetchFn] of [
-    ["offline", async () => Promise.reject(new TypeError("Network request failed"))],
-    ["404", answer("", { ok: false })],
-    ["html", answer("<html>")],
-    ["wrong version", answer({ version: 2, switches: { sidebarSlide: true } })],
-    ["no switches", answer({ version: 1 })],
-    ["huge", answer(file({ sidebarSlide: true, pad: "x".repeat(5000) }))],
-  ]) {
-    reset();
-    docs.set("switches-cache.json", JSON.stringify(file({ sidebarSlide: false })));
-    const before = docs.get("switches-cache.json");
-    assert.equal(await ks.refreshSwitches(fetchFn), "failed", label);
-    assert.equal(ks.switchOn("sidebarSlide"), false, label);
-    assert.equal(docs.get("switches-cache.json"), before, label);
+  docs.set("switches-cache.json", JSON.stringify(file({ sidebarSlide: false })));
+  const before = docs.get("switches-cache.json");
+  let calls = 0;
+  const fetchFn = async () => { calls++; throw new Error("must not fetch"); };
+  for (let i = 0; i < 3; i++) {
+    ks.resetRefreshForTests();
+    ks.reloadSwitches();
+    assert.equal(await ks.refreshSwitches(fetchFn), "disabled");
+    assert.equal(ks.switchOn("sidebarSlide"), true);
+    assert.equal(docs.get("switches-cache.json"), before);
   }
-  reset();
-  assert.equal(await ks.refreshSwitches(answer("<html>")), "failed");
-  assert.equal(ks.switchOn("sidebarSlide"), true);
-});
-
-test("a slow answer is dropped after the timeout", async (t) => {
-  reset();
-  t.mock.timers.enable({ apis: ["setTimeout"] });
-  const slow = (_url, { signal }) => new Promise((_, reject) => signal.addEventListener("abort", () => reject(new Error("aborted"))));
-  const result = ks.refreshSwitches(slow);
-  t.mock.timers.tick(5000);
-  assert.equal(await result, "failed");
-  assert.equal(ks.switchOn("sidebarSlide"), true);
+  assert.equal(calls, 0);
 });
 
 test("every switch and experiment native and engine code read by name is in the registry", async () => {

@@ -10,7 +10,7 @@ export const appInfo = () => (app ??= systemInfo());
 const devSendAllowed = () => devTestValue(DEV_SEND_TEST_KEY) === "1";
 
 export const mayPost = (kind: RequestLogEntry["kind"]) =>
-  kind === "daily" ? devSendAllowed() || (!__DEV__ && appInfo().isolatedInstance === false) : !__DEV__ || devSendAllowed();
+  !!LOGS_URL && (kind === "daily" ? devSendAllowed() || (!__DEV__ && appInfo().isolatedInstance === false) : !__DEV__ || devSendAllowed());
 
 const posted = { bytes: 0, failed: 0, requests: 0 };
 
