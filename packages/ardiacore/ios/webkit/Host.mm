@@ -15,6 +15,7 @@ extern "C" void ArdiaWebKitReleaseProfile(NSString *);
 
 static __weak NSWindow *backgroundKeyWindow;
 static const void *pageFullScreenKey = &pageFullScreenKey;
+static const void *fullScreenNotificationKey = &fullScreenNotificationKey;
 static const void *lightsCenterKey = &lightsCenterKey;
 static const void *lightsTrailingKey = &lightsTrailingKey;
 static BOOL (^shouldClose)(NSWindow *);
@@ -113,6 +114,14 @@ void ArdiaWebViewsSetFieldTiming(BOOL on) {}
         [NSNotificationCenter.defaultCenter postNotificationName:ArdiaWindowSeenDidChange object:note.object];
       }];
     }
+    if (ArdiaLaunchConfig.shared.testInstance) {
+      for (NSNotificationName name in @[NSWindowWillEnterFullScreenNotification, NSWindowDidEnterFullScreenNotification, NSWindowWillExitFullScreenNotification, NSWindowDidExitFullScreenNotification]) {
+        [NSNotificationCenter.defaultCenter addObserverForName:name object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {
+          objc_setAssociatedObject(note.object, fullScreenNotificationKey, note.name, OBJC_ASSOCIATION_COPY_NONATOMIC);
+          NSLog(@"[webkit] window fullscreen %@ window=%ld", note.name, (long)[note.object windowNumber]);
+        }];
+      }
+    }
     id<NSApplicationDelegate> delegate = makeDelegate();
     application.delegate = delegate;
     if (ArdiaLaunchConfig.shared.testInstance && !ArdiaLaunchConfig.shared.background) {
@@ -190,6 +199,20 @@ BOOL ArdiaPerformReservedKey(NSEvent *event) {
     }
     return @"missing About item";
   }
+  if ([action isEqual:@"menus"]) {
+    NSMutableArray *items = [NSMutableArray array];
+    NSMutableArray *pending = [NSMutableArray arrayWithObject:NSApp.mainMenu];
+    while (pending.count) {
+      NSMenu *menu = pending.lastObject;
+      [pending removeLastObject];
+      [menu update];
+      for (NSMenuItem *item in menu.itemArray) {
+        if (item.submenu) [pending addObject:item.submenu];
+        else if (item.keyEquivalent.length) [items addObject:@{@"id": item.identifier ?: @"", @"key": item.keyEquivalent, @"enabled": @(item.enabled)}];
+      }
+    }
+    return [[NSString alloc] initWithData:[NSJSONSerialization dataWithJSONObject:items options:0 error:nil] encoding:NSUTF8StringEncoding];
+  }
   if ([action isEqual:@"state"]) {
     NSMutableArray *lights = [NSMutableArray array];
     for (NSInteger kind = NSWindowCloseButton; kind <= NSWindowZoomButton; kind++) {
@@ -209,7 +232,7 @@ BOOL ArdiaPerformReservedKey(NSEvent *event) {
         [pages addObject:@{@"x": @(NSMinX(frame)), @"y": @(window.frame.size.height - NSMaxY(frame)), @"width": @(frame.size.width), @"height": @(frame.size.height), @"gestures": @(page.allowsBackForwardNavigationGestures)}];
       }
     }
-    NSDictionary *state = @{@"pages": pages, @"lights": lights, @"seen": @([self userSeesWindow:window]), @"responder": NSStringFromClass(window.firstResponder.class) ?: @"", @"visible": @(window.visible)};
+    NSDictionary *state = @{@"pages": pages, @"lights": lights, @"seen": @([self userSeesWindow:window]), @"responder": NSStringFromClass(window.firstResponder.class) ?: @"", @"visible": @(window.visible), @"fullScreenNotification": objc_getAssociatedObject(window, fullScreenNotificationKey) ?: @"", @"fullScreen": @((window.styleMask & NSWindowStyleMaskFullScreen) != 0)};
     return [[NSString alloc] initWithData:[NSJSONSerialization dataWithJSONObject:state options:0 error:nil] encoding:NSUTF8StringEncoding];
   }
   if ([action isEqual:@"activate"]) {
@@ -231,15 +254,29 @@ BOOL ArdiaPerformReservedKey(NSEvent *event) {
     [window setContentSize:NSMakeSize([size[0] doubleValue], [size[1] doubleValue])];
     return @"ok";
   }
+  if ([action hasPrefix:@"hardwareKey:"]) {
+    NSArray *parts = [[action substringFromIndex:12] componentsSeparatedByString:@"|"];
+    if (parts.count != 2) return @"invalid hardware key";
+    for (NSNumber *down in @[@YES, @NO]) {
+      CGEventRef hardware = CGEventCreateKeyboardEvent(nullptr, [parts[0] intValue], down.boolValue);
+      if (!hardware) return @"cannot create hardware key";
+      CGEventSetFlags(hardware, [parts[1] longLongValue] | (CGEventGetFlags(hardware) & (kCGEventFlagMaskSecondaryFn | kCGEventFlagMaskNumericPad | kCGEventFlagMaskNonCoalesced)));
+      CGEventSetIntegerValueField(hardware, (CGEventField)51, window.windowNumber);
+      NSEvent *event = [NSEvent eventWithCGEvent:hardware];
+      CFRelease(hardware);
+      if (!event) return @"cannot create AppKit key";
+      [NSApp postEvent:event atStart:NO];
+    }
+    return @"ok";
+  }
   if ([action hasPrefix:@"key:"]) {
     NSArray *parts = [[action substringFromIndex:4] componentsSeparatedByString:@"|"];
     if (parts.count != 3) return @"invalid key";
     NSEventModifierFlags flags = [parts[2] longLongValue];
     NSEvent *event = [NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint modifierFlags:flags timestamp:NSProcessInfo.processInfo.systemUptime windowNumber:window.windowNumber context:nil characters:parts[0] charactersIgnoringModifiers:parts[0] isARepeat:NO keyCode:[parts[1] intValue]];
-    BOOL shortcut = (flags & (NSEventModifierFlagCommand | NSEventModifierFlagControl)) != 0;
-    if (!shortcut || (![window performKeyEquivalent:event] && ![NSApp.mainMenu performKeyEquivalent:event])) [window.firstResponder keyDown:event];
     NSEvent *up = [NSEvent keyEventWithType:NSEventTypeKeyUp location:NSZeroPoint modifierFlags:flags timestamp:event.timestamp windowNumber:window.windowNumber context:nil characters:parts[0] charactersIgnoringModifiers:parts[0] isARepeat:NO keyCode:event.keyCode];
-    [window.firstResponder keyUp:up];
+    [NSApp postEvent:event atStart:NO];
+    [NSApp postEvent:up atStart:NO];
     return @"ok";
   }
   if ([action hasPrefix:@"mouse:"]) {

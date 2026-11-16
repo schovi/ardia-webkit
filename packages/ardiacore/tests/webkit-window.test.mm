@@ -102,15 +102,38 @@ int main() {
     [page addSubview:child];
     assert(WebKitPageAt(child, input) == page);
     assert(!WebKitPageAt(child, page));
+    page.inspectable = YES;
+    NSObject *inspector = [page valueForKey:@"_inspector"];
+    for (NSString *selector in @[@"isVisible", @"isConnected", @"isElementSelectionActive", @"inspectorWebView", @"detach", @"close"]) {
+      assert([inspector respondsToSelector:NSSelectorFromString(selector)]);
+    }
+    assert(![[inspector valueForKey:@"visible"] boolValue]);
+    assert(![[inspector valueForKey:@"connected"] boolValue]);
     [page removeFromSuperview];
     assert([window makeFirstResponder:input]);
     [ArdiaChromeWindowHost devAction:@"key:e|14|0" window:window];
-    assert(input.keys == 1);
-    for (NSString *action in @[@"key:bad", @"mouse:bad", @"resize:bad"]) {
+    assert(input.keys == 0);
+    NSEvent *down = [NSApp nextEventMatchingMask:NSEventMaskKeyDown untilDate:[NSDate dateWithTimeIntervalSinceNow:1] inMode:NSDefaultRunLoopMode dequeue:YES];
+    NSEvent *up = [NSApp nextEventMatchingMask:NSEventMaskKeyUp untilDate:[NSDate dateWithTimeIntervalSinceNow:1] inMode:NSDefaultRunLoopMode dequeue:YES];
+    assert(down.window == window && up.window == window);
+    assert([down.characters isEqual:@"e"] && down.keyCode == 14 && up.keyCode == 14);
+    assert(window.firstResponder == input);
+    NSMenu *menu = [NSMenu new];
+    NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:@"Back" action:nil keyEquivalent:@"["];
+    item.identifier = @"ardia.command.back";
+    [menu addItem:item];
+    NSApp.mainMenu = menu;
+    assert([[ArdiaChromeWindowHost devAction:@"menus" window:window] containsString:@"ardia.command.back"]);
+    assert([[ArdiaChromeWindowHost devAction:@"hardwareKey:33|1048576" window:window] isEqual:@"ok"]);
+    down = [NSApp nextEventMatchingMask:NSEventMaskKeyDown untilDate:[NSDate dateWithTimeIntervalSinceNow:1] inMode:NSDefaultRunLoopMode dequeue:YES];
+    up = [NSApp nextEventMatchingMask:NSEventMaskKeyUp untilDate:[NSDate dateWithTimeIntervalSinceNow:1] inMode:NSDefaultRunLoopMode dequeue:YES];
+    assert(down.window == window && up.window == window && down.keyCode == 33 && up.keyCode == 33);
+    assert(down.modifierFlags & NSEventModifierFlagCommand);
+    for (NSString *action in @[@"hardwareKey:bad", @"key:bad", @"mouse:bad", @"resize:bad"]) {
       assert([[ArdiaChromeWindowHost devAction:action window:window] hasPrefix:@"invalid"]);
     }
     assert([[ArdiaChromeWindowHost devAction:@"state" window:window] containsString:@"lights"]);
     [window close];
-    puts("PASS WebKit window: close policy, root ownership, light coordinates, visibility defaults, quit callback, reserved key guard");
+    puts("PASS WebKit window: close policy, root ownership, light coordinates, visibility defaults, quit callback, reserved key guard, queued literal/hardware keys, menu validation, inspector SPI");
   }
 }

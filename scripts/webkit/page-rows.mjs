@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { RowOutcome } from "./report.mjs";
+import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { BUILD } from "./support.mjs";
 
 const state = (browser, id) => browser.evaluate(`return ac.engine.call("webKit.devPageState",{tabId:${JSON.stringify(id)}});`);
 const call = (browser, name, args) => browser.evaluate(`return ac.engine.call(${JSON.stringify(name)},${JSON.stringify(args)});`);
@@ -10,12 +11,28 @@ export const pageRows = {
   inspector: async ({browser}) => {
     const id = await browser.open();
     assert.equal((await state(browser,id)).inspectable,true);
+    const root = (await state(browser,id)).window;
+    const inspector = action => call(browser,"webKit.devInspector",{tabId:id,...(action ? {action} : {})});
+    const ready = "s.visible&&s.connected&&s.frontend?.visible&&s.frontend.width>0&&s.frontend.height>0&&s.frontend.url";
+    const visible = (detached = false) => `return ac.engine.call("webKit.devInspector",{tabId:${JSON.stringify(id)}}).then(s=>${ready}${detached ? `&&s.frontend.window!==${root}` : ""}?s:null);`;
     await web(browser,id,"showDevTools",["inspect"]);
-    await browser.evaluate(`ac.runCommand({command:"devTools",arg:null,windowId:${JSON.stringify(browser.window)}});return true;`);
-    const log = readFileSync(browser.app.log,"utf8");
-    assert.match(log,/inspector inspect \(background mode, not shown\)/);
-    assert.match(log,/inspector default \(background mode, not shown\)/);
-    throw new RowOutcome("NEEDS PERSON","Inspect and Developer Tools command reached private _inspector; selectors present; inspectable=true; background mode suppressed UI; actual inspector and shortcut need a key window");
+    const inspecting = await browser.until(visible());
+    assert.equal(inspecting.elementSelectionActive,true);
+    await inspector("detach");
+    const detached = await browser.until(visible(true));
+    const directory = join(BUILD,"step-2-evidence");
+    mkdirSync(directory,{recursive:true});
+    await browser.snapshot("inspector.png",detached.frontend.window);
+    copyFileSync(join(browser.data,"inspector.png"),join(directory,"inspector.png"));
+    await inspector("close");
+    await browser.until(`return ac.engine.call("webKit.devInspector",{tabId:${JSON.stringify(id)}}).then(s=>!s.visible);`);
+    await call(browser,"windows.dev",{window:root,action:"activate"});
+    await browser.until(`return ac.engine.call("webKit.devPageState",{tabId:${JSON.stringify(id)}}).then(s=>s.key&&s.active);`);
+    await web(browser,id,"focus");
+    assert.equal(await call(browser,"windows.dev",{window:root,action:"hardwareKey:34|1572864"}),"ok");
+    const reopened = await browser.until(visible());
+    await inspector("close");
+    return `Inspect opened a visible frontend with element selection active; detached native window=${detached.frontend.window}, ${detached.frontend.width}x${detached.frontend.height}; closed; queued Option+Command+I reopened visible window=${reopened.frontend.window}; inspector.png retained`;
   },
   "popup-blocked": async ({browser}) => {
     const id = await browser.open("/popup-auto");

@@ -115,6 +115,23 @@ public class WebKitModule: Module {
       }
       reply.ok(pending)
     },
+    "devInspector": { args, reply in
+      guard let tab = WebKitHub.shared.transfers.liveTab(try args.text("tabId")), let view = tab.webView,
+        let inspector = view.value(forKey: "_inspector") as? NSObject else { return reply.ok() }
+      if let action = try args.optionalText("action"), ["detach", "close"].contains(action), inspector.responds(to: NSSelectorFromString(action)) {
+        inspector.perform(NSSelectorFromString(action))
+      }
+      var state: [String: Any] = [:]
+      for property in ["visible", "connected", "elementSelectionActive"] {
+        let getter = "is" + property.prefix(1).uppercased() + property.dropFirst()
+        if inspector.responds(to: NSSelectorFromString(getter)) { state[property] = inspector.value(forKey: property) }
+      }
+      let frontendSelector = NSSelectorFromString("inspectorWebView")
+      if inspector.responds(to: frontendSelector), let frontend = inspector.perform(frontendSelector)?.takeUnretainedValue() as? WKWebView {
+        state["frontend"] = ["window": frontend.window?.windowNumber ?? 0, "visible": frontend.window?.isVisible == true && !frontend.isHiddenOrHasHiddenAncestor, "width": frontend.bounds.width, "height": frontend.bounds.height, "url": frontend.url?.absoluteString ?? ""]
+      }
+      reply.ok(state)
+    },
     "devPageState": { args, reply in
       guard let tab = WebKitHub.shared.transfers.liveTab(try args.text("tabId")), let view = tab.webView else { return reply.ok() }
       let responder = view.window?.firstResponder as? NSView

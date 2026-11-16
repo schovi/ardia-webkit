@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { RowOutcome } from "./report.mjs";
 import { BUILD, sleep } from "./support.mjs";
 
-export const foregroundRows = new Set(["ext-action", "type-page", "type-omnibox", "keys-page-focus", "full-screen"]);
+export const foregroundRows = new Set(["ext-action", "type-page", "type-omnibox", "keys-page-focus", "full-screen", "inspector"]);
 
 const evidence = join(BUILD, "step-2-evidence");
 async function native(browser, action) {
@@ -14,7 +14,7 @@ const pageState = (browser,id) => browser.evaluate(`return ac.engine.call("webKi
 const state = async browser => JSON.parse(await native(browser, "state"));
 const keyCodes = Object.fromEntries(Object.entries({a:0,s:1,d:2,f:3,h:4,g:5,z:6,x:7,c:8,v:9,b:11,q:12,w:13,e:14,r:15,y:16,t:17,"1":18,"2":19,"3":20,"4":21,"6":22,"5":23,"=":24,"9":25,"7":26,"-":27,"8":28,"0":29,"]":30,o:31,u:32,"[":33,i:34,p:35,l:37,j:38,"'":39,k:40,";":41,":":41,"\\":42,",":43,"/":44,n:45,m:46,".":47," ":49}));
 async function key(browser, text, code = keyCodes[text.toLowerCase()] ?? 0, modifiers = 0) {
-  assert.equal(await native(browser, `key:${text}|${code}|${modifiers}`), "ok");
+  assert.equal(await native(browser, modifiers ? `hardwareKey:${code}|${modifiers}` : `key:${text}|${code}|${modifiers}`), "ok");
   await sleep(150);
 }
 async function click(browser, point, right = false) {
@@ -28,6 +28,11 @@ async function point(browser, id, selector) {
   const page = (await state(browser)).pages[0];
   assert.ok(page);
   return {x: page.x + rect.x, y: page.y + rect.y};
+}
+async function settledFullScreen(browser, id, entered) {
+  const notification = entered ? "NSWindowDidEnterFullScreenNotification" : "NSWindowDidExitFullScreenNotification";
+  await browser.until(`return ac.engine.call("windows.list").then(w=>ac.engine.call("windows.dev",{window:w.find(w=>w.hasRoot).window,action:"state"})).then(raw=>{const s=JSON.parse(raw);return s.fullScreenNotification===${JSON.stringify(notification)}&&s.fullScreen===${entered}&&s.seen;});`);
+  await browser.until(`return ac.engine.call("webKit.devPageState",{tabId:${JSON.stringify(id)}}).then(s=>s.active&&s.key);`);
 }
 async function inputs(browser) {
   const id = await browser.open("/keyboard");
@@ -53,7 +58,7 @@ export const windowRows = {
     await key(browser,"\t",48); await key(browser,"v",9,1048576);
     assert.equal(await browser.page(id,'document.activeElement.id'),"second");
     assert.equal(await browser.page(id,'document.querySelector("#second").value'),"hello");
-    return "synthetic click, native keys: hello; Tab to second; Cmd+C/V copied hello; system focus needs a person";
+    return "synthetic click, native keys: hello; Tab to second; Cmd+C/V copied hello; active/key window, in-app input";
   },
   "type-omnibox": async ({browser}) => {
     const id = await browser.open();
@@ -65,8 +70,9 @@ export const windowRows = {
     await key(browser,"\r",36);
     await browser.loaded(id,"Cobalt Violet key-url");
     await key(browser,"l",37,1048576); await key(browser,"\u001b",53);
-    await browser.until(`return ac.engine.call("webKit.devPageState",{tabId:${JSON.stringify(id)}}).then(s=>s.focused);`,2000);
-    return "synthetic Cmd+L; native URL typing and Return loaded fixture; Esc restored WK responder; system focus needs a person";
+    const focused = await browser.until(`return ac.engine.call("webKit.devPageState",{tabId:${JSON.stringify(id)}}).then(s=>s.focused?s:null);`,2000);
+    assert.ok(focused.focusRequests>1);
+    return `queued Cmd+L; native URL typing and Return loaded fixture; Esc restored ${focused.responder}; focusRequests=${focused.focusRequests}; active/key window, in-app input`;
   },
   "keys-page-focus": async ({browser}) => {
     const id = await inputs(browser);
@@ -81,16 +87,21 @@ export const windowRows = {
     await key(browser,"f",3,1048576);
     await browser.until(`return !!ac.store.getState().find[${JSON.stringify(id)}];`);
     await key(browser,"\u001b",53);
+    await browser.until(`return ac.engine.call("webKit.devPageState",{tabId:${JSON.stringify(id)}}).then(s=>s.focused);`);
     await browser.execute(id,'document.documentElement.dataset.marker="before"');
     await key(browser,"r",15,1048576);
     await browser.until(`return ac.webviews.get(${JSON.stringify(id)}).evaluate('post("result",JSON.stringify(!document.documentElement.dataset.marker));');`);
     await browser.execute(id,'location.href="/second"'); await browser.loaded(id,"Cobalt Violet second");
+    assert.equal((await pageState(browser,id)).focused,true);
+    const back = JSON.parse(await native(browser,"menus")).find(item=>item.id==="ardia.command.back"&&item.enabled);
+    assert.ok(back,"Back menu item is disabled");
     await key(browser,"[",33,1048576); await browser.loaded(id,"Cobalt Violet keyboard");
+    assert.equal((await pageState(browser,id)).focused,true);
     await key(browser,"]",30,1048576); await browser.loaded(id,"Cobalt Violet second");
     await browser.execute(id,'document.addEventListener("keydown",e=>document.documentElement.dataset.key=e.key)');
     await browser.evaluate(`return ac.webviews.get(${JSON.stringify(id)}).focus();`); await key(browser,"x",7);
     assert.equal(await browser.page(id,"document.documentElement.dataset.key"),"x");
-    return "synthetic Cmd+T/W/R/F/[/] changed tabs, reload, find and history; plain x reached DOM; system routing needs a person";
+    return `queued native Cmd+T/W/R/F and physical bracket keys changed tabs, reload, find and history; page focus asserted; Back menu key=${back.key}; plain x reached DOM`;
   },
   "traffic-lights": async ({browser}) => {
     await browser.open();
@@ -123,13 +134,20 @@ export const windowRows = {
     const id = await browser.open();
     await native(browser,"fullscreen");
     await browser.until(`return ac.store.getState().windows[${JSON.stringify(browser.window)}].fullScreen;`);
+    await settledFullScreen(browser,id,true);
     await snapshot(browser,"fullscreen.png");
     await native(browser,"fullscreen");
     await browser.until(`return !ac.store.getState().windows[${JSON.stringify(browser.window)}].fullScreen;`);
-    await browser.execute(id,"document.body.innerHTML=\"<button id=\\\"enter\\\">Full screen</button><div id=\\\"stage\\\" style=\\\"background:#182b72;color:white;width:100%;height:100%;display:flex;align-items:center;justify-content:center;font:48px sans-serif\\\">WebKit element full screen</div>\";document.querySelector(\"#enter\").onclick=()=>document.querySelector(\"#stage\").requestFullscreen();");
+    await settledFullScreen(browser,id,false);
+    await browser.execute(id,"document.body.innerHTML=\"<button id=\\\"enter\\\">Full screen</button><div id=\\\"stage\\\" style=\\\"background:#182b72;color:white;width:100%;height:100%;display:flex;align-items:center;justify-content:center;font:48px sans-serif\\\">WebKit element full screen</div>\";document.querySelector(\"#enter\").onclick=e=>{document.documentElement.dataset.fullscreenGesture=String(e.isTrusted);document.documentElement.dataset.fullscreenRequest=\"requested\";document.querySelector(\"#stage\").requestFullscreen().then(()=>document.documentElement.dataset.fullscreenRequest=\"entered\",error=>document.documentElement.dataset.fullscreenRequest=error.name+\": \"+error.message);};");
     await browser.until(`return ac.webviews.get(${JSON.stringify(id)}).evaluate('post("result",JSON.stringify(!!document.querySelector("#enter")));');`);
     await click(browser,await point(browser,id,"#enter"));
-    await browser.until(`return ac.webviews.get(${JSON.stringify(id)}).evaluate('post("result",JSON.stringify(document.fullscreenElement?.id==="stage"));');`);
+    try {
+      await browser.until(`return ac.webviews.get(${JSON.stringify(id)}).evaluate('post("result",JSON.stringify(document.fullscreenElement?.id==="stage"));');`);
+    } catch (error) {
+      throw new Error(`${error.message}; request=${JSON.stringify(await browser.page(id,"({...document.documentElement.dataset})"))}; native=${JSON.stringify(await pageState(browser,id))}`);
+    }
+    assert.equal(await browser.page(id,"document.documentElement.dataset.fullscreenGesture"),"true");
     const full = await browser.until(`return ac.engine.call("webKit.devPageState",{tabId:${JSON.stringify(id)}}).then(s=>s.fullScreen===2?s:null);`);
     await browser.until(`return ac.pageState.getState().pages[${JSON.stringify(id)}]?.fullscreen;`);
     await browser.until('return globalThis.acPerf.findFibers("DockedLayout").some(f=>f.memoizedProps.fullscreen===true);');
@@ -142,7 +160,8 @@ export const windowRows = {
     await browser.until(`return ac.webviews.get(${JSON.stringify(id)}).evaluate('post("result",JSON.stringify(!document.fullscreenElement));');`);
     await browser.until(`return !ac.pageState.getState().pages[${JSON.stringify(id)}]?.fullscreen;`);
     await browser.until('return globalThis.acPerf.findFibers("DockedLayout").some(f=>f.memoizedProps.fullscreen===false);');
-    return "real window full screen entered/exited; native click entered DOM element full screen; WebKit state=2 and chrome hidden; Esc restored element/chrome; element-fullscreen.jpg retained";
+    copyFileSync(browser.app.log,join(evidence,"fullscreen.log"));
+    return "real window full screen reached didEnter/didExit; native click entered DOM element full screen; WebKit state=2 and chrome hidden; Esc restored element/chrome; element-fullscreen.jpg retained";
   },
   "user-sees": async ({browser}) => {
     await browser.open();

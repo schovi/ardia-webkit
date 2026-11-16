@@ -11,6 +11,7 @@ extension WebKitTab {
 
   func observeFullScreen(_ view: WKWebView) -> NSKeyValueObservation {
     view.observe(\.fullscreenState) { [weak self] view, _ in
+      if LaunchConfig.shared.testInstance { NSLog("[webkit] element fullscreen state=%ld window=%ld key=%d", view.fullscreenState.rawValue, view.window?.windowNumber ?? 0, view.window?.isKeyWindow == true) }
       let fullScreen = view.fullscreenState != .notInFullscreen
       if let window = self?.window { ArdiaChromeWindowHost.setPageFullScreen(fullScreen, in: window) }
       self?.emit("fullscreen", ["fullscreen": fullScreen])
