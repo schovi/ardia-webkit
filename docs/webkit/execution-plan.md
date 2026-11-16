@@ -327,7 +327,7 @@ Each of these is its own decision after the steps above.
 | Step | State | Commits | Notes |
 |---|---|---|---|
 | 0. Checks in the repo | complete | `5722bc3cc` | 20 rows pass; verified without old scratch folders; intentional failure detected. |
-| 1. Nothing talks to upstream | not started | | |
+| 1. Nothing talks to upstream | blocked | `45bedc4d5` | Release rebuilt; 20 baseline rows pass. Privacy crashes in the unchanged content-blocker stand-in before the new request check reaches 90 seconds. |
 | 2. Window and keyboard | not started | | |
 | 3. Page features | not started | | |
 | 4. Site and browser settings | not started | | |
