@@ -4,7 +4,7 @@ A fork of [Ardia](https://github.com/mantrakp04/ardia) that replaces its Chromiu
 
 Branch `webkit` holds the work. It is based on upstream stable tag `v0.2.46`.
 
-Status: **a Release app (`Ardia WebKit`, no Chromium) does basic browsing with favicons, history and search suggestions** (Steps 2, 3 and the first half of 5 done, 2026-11-16). Bookmarks, passwords, extensions, autofill, sync and import are still stand-ins.
+Status: **all eight steps of the execution plan are done** (2026-11-16). `Ardia WebKit` has no Chromium and does browsing, history, bookmarks, site settings, import, passwords and extensions on WebKit. `scripts/webkit/check` passes 74 rows; 1 row needs a person (trackpad swipe) and 2 need a Mac with real Arc or Chrome data.
 
 | File | What it holds |
 |---|---|
@@ -26,4 +26,4 @@ The app lands in `apps/browser/build-webkit/Build/Products/Release/Ardia WebKit.
 
 ## Next action
 
-See the progress table in [execution-plan.md](execution-plan.md#progress).
+Use the app for real browsing on the main Mac. Run the short manual list in [needs-person.md](needs-person.md) and a real Arc import. What is not planned is listed in [execution-plan.md](execution-plan.md#not-planned).
