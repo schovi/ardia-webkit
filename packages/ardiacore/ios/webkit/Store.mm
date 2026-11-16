@@ -39,14 +39,16 @@ class Statement {
 void Execute(sqlite3 *database, const char *sql) {
   if (sqlite3_exec(database, sql, nullptr, nullptr, nullptr) != SQLITE_OK) throw std::runtime_error(sqlite3_errmsg(database));
 }
-NSString *FileName(NSString *profile) {
-  if (!profile.length) return @"default.sqlite3";
-  NSData *data = [profile dataUsingEncoding:NSUTF8StringEncoding];
+NSString *Hash(NSString *text) {
+  NSData *data = [text dataUsingEncoding:NSUTF8StringEncoding];
   unsigned char digest[CC_SHA256_DIGEST_LENGTH];
   CC_SHA256(data.bytes, (CC_LONG)data.length, digest);
   NSMutableString *name = [NSMutableString string];
   for (unsigned char byte : digest) [name appendFormat:@"%02x", byte];
-  return [name stringByAppendingString:@".sqlite3"];
+  return name;
+}
+NSString *FileName(NSString *profile) {
+  return profile.length ? [Hash(profile) stringByAppendingString:@".sqlite3"] : @"default.sqlite3";
 }
 }
 
@@ -67,6 +69,7 @@ NSString *FileName(NSString *profile) {
       "CREATE TABLE IF NOT EXISTS pages(url TEXT PRIMARY KEY,title TEXT NOT NULL,visits INTEGER NOT NULL,last REAL NOT NULL);"
       "CREATE INDEX IF NOT EXISTS pages_last ON pages(last DESC);"
       "CREATE TABLE IF NOT EXISTS visits(url TEXT REFERENCES pages(url) ON DELETE CASCADE,at REAL,PRIMARY KEY(url,at));"
+      "CREATE TABLE IF NOT EXISTS deletions(url_hash TEXT,since REAL,until REAL,PRIMARY KEY(url_hash,since));"
       "CREATE TABLE IF NOT EXISTS icons(url TEXT PRIMARY KEY,png TEXT NOT NULL);"
       "CREATE TABLE IF NOT EXISTS page_icons(page TEXT PRIMARY KEY,icon TEXT NOT NULL);");
   }
@@ -98,6 +101,7 @@ NSString *FileName(NSString *profile) {
     return @{@"entries": entries};
   }
   if ([name isEqualToString:@"ac_history_add"]) {
+    Statement deleted(_database, "SELECT 1 FROM deletions WHERE url_hash IN ('',?) AND since<=? AND until>=? LIMIT 1");
     Statement existing(_database, "SELECT 1 FROM visits WHERE url=? AND at BETWEEN ? AND ? LIMIT 1");
     Statement page(_database, "INSERT INTO pages VALUES(?,?,1,?) ON CONFLICT(url) DO UPDATE SET title=CASE WHEN excluded.title='' THEN title ELSE excluded.title END,visits=visits+1,last=MAX(last,excluded.last)");
     Statement visit(_database, "INSERT INTO visits VALUES(?,?)");
@@ -114,6 +118,9 @@ NSString *FileName(NSString *profile) {
         for (id time in List(value[@"v"])) {
           double at = Number(time);
           if (at <= 0) continue;
+          deleted.text(1, Hash(url)); deleted.number(2, at); deleted.number(3, at);
+          bool removed = deleted.step(); deleted.reset();
+          if (removed) continue;
           existing.text(1, url); existing.number(2, at - tolerance); existing.number(3, at + tolerance);
           bool found = existing.step(); existing.reset();
           if (found) continue;
@@ -134,13 +141,16 @@ NSString *FileName(NSString *profile) {
   }
   if ([name isEqualToString:@"ac_history_delete_urls"]) {
     Statement remove(_database, "DELETE FROM pages WHERE url=?");
+    Statement remember(_database, "INSERT OR REPLACE INTO deletions VALUES(?,0,?)");
+    double until = NSDate.date.timeIntervalSince1970 * 1000;
     NSMutableArray *urls = [NSMutableArray array];
     Execute(_database, "BEGIN IMMEDIATE");
     try {
       for (id value in List(args[@"urls"])) {
         NSString *url = Text(value);
         if (!url.length) continue;
-        remove.text(1, url); remove.step(); remove.reset(); [urls addObject:url];
+        remove.text(1, url); remove.step(); remove.reset();
+        remember.text(1, Hash(url)); remember.number(2, until); remember.step(); remember.reset(); [urls addObject:url];
       }
       Execute(_database, "COMMIT");
     } catch (...) { Execute(_database, "ROLLBACK"); throw; }
@@ -148,10 +158,13 @@ NSString *FileName(NSString *profile) {
     return @{};
   }
   if ([name isEqualToString:@"history.clear"]) {
-    Statement remove(_database, "DELETE FROM visits WHERE at>=?"); remove.number(1, Number(args[@"since"]));
+    double since = Number(args[@"since"]);
+    Statement remove(_database, "DELETE FROM visits WHERE at>=?"); remove.number(1, since);
+    Statement remember(_database, "INSERT OR REPLACE INTO deletions VALUES('',?,?)");
+    remember.number(1, since); remember.number(2, NSDate.date.timeIntervalSince1970 * 1000);
     Execute(_database, "BEGIN IMMEDIATE");
     try {
-      remove.step();
+      remove.step(); remember.step();
       Execute(_database, "DELETE FROM pages WHERE NOT EXISTS(SELECT 1 FROM visits WHERE visits.url=pages.url);"
         "UPDATE pages SET visits=(SELECT COUNT(*) FROM visits WHERE visits.url=pages.url),last=(SELECT MAX(at) FROM visits WHERE visits.url=pages.url);");
       Execute(_database, "COMMIT");
