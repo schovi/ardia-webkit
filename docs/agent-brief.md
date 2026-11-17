@@ -206,10 +206,11 @@ Engine files are in `engine/ardiacore/src/ardia/core`, app files in `packages/ar
       `pnpm -w typecheck` and relaunch your instance after risky import changes.
     - Fast Refresh doesn't always apply (and has crashed Hermes' debugger). Relaunch your instance
       before judging a change.
-  - `pod install` (after adding/removing native source files, changing a podspec, or adding native
-    packages) must hold the shared lock: `scripts/agent/locked pod -- sh -c 'cd apps/browser/macos &&
-    LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 pod install'`.
-    Same lock for `pnpm install` and edits to apps/browser/package.json. A new Expo module in an
+  - Install with `scripts/setup` (after adding/removing native source files, changing a podspec, a
+    `package.json` or the lockfile, or when Xcode can't open a `Pods-Ardia-macOS` xcconfig). It runs
+    `pnpm install` and `pod install` under the shared pod lock, relinks workspace packages pnpm wrongly
+    reports as up to date, works around rvm's gem paths breaking Homebrew's `pod`, and fails if
+    `Podfile.lock` lost an Ardia pod. Edits to apps/browser/package.json take the same lock. A new Expo module in an
     existing source file only needs its `expo-module.config.json` entry (the build regenerates
     the module provider).
 - **Shared files** several agents must touch — `packages/shell/ios/MainMenu.swift`,

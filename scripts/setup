@@ -1,0 +1,76 @@
+#!/bin/bash
+# Installs the JS packages and the Pods, and fails loudly when either comes out incomplete.
+#
+#   scripts/setup
+#   scripts/setup -h | --help
+#
+# Run it on a fresh checkout, after pulling a change to a package.json, the lockfile, a podspec or a patch, and
+# whenever an Xcode build says it can't open a Pods-Ardia-macOS xcconfig.
+# - pnpm install runs non-interactively (CI=true), so it never waits on a prompt nobody sees.
+# - If apps/browser/node_modules lacks a workspace package, it drops pnpm's stale workspace state and installs again.
+# - pod install runs from apps/browser/macos. When `pod` crashes on rvm's GEM_HOME/GEM_PATH, it retries without them.
+# - It fails if Podfile.lock is missing a pod from packages/*/ios: autolinking then found no workspace packages.
+# Both installs hold the shared pod lock (scripts/agent/locked).
+set -euo pipefail
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  awk 'NR == 1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$0"
+  exit 0
+fi
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$root"
+locked=("$root/scripts/agent/locked" pod --)
+export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+
+fail() {
+  echo "setup: $*" >&2
+  exit 1
+}
+
+missing_workspace_packages() {
+  node -e '
+    const fs = require("fs");
+    const pkg = require("./apps/browser/package.json");
+    const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+    const missing = Object.keys(deps)
+      .filter((name) => String(deps[name]).startsWith("workspace:"))
+      .filter((name) => !fs.existsSync(`apps/browser/node_modules/${name}/package.json`)
+        && !fs.existsSync(`node_modules/${name}/package.json`));
+    process.stdout.write(missing.join(" "));
+  '
+}
+
+command -v node >/dev/null || fail "node not found (Node $(cat .nvmrc) required)"
+command -v pnpm >/dev/null || fail "pnpm not found (enable it with: corepack enable)"
+command -v pod >/dev/null || fail "CocoaPods not found (brew install cocoapods)"
+
+echo "setup: pnpm install"
+CI=true "${locked[@]}" pnpm install --frozen-lockfile
+
+missing="$(missing_workspace_packages)"
+if [[ -n "$missing" ]]; then
+  echo "setup: not linked: $missing; dropping pnpm's workspace state and installing again"
+  rm -f node_modules/.pnpm-workspace-state-v1.json
+  CI=true "${locked[@]}" pnpm install --frozen-lockfile
+  missing="$(missing_workspace_packages)"
+  [[ -z "$missing" ]] || fail "still not linked after reinstall: $missing"
+fi
+
+pod=(pod)
+if ! pod --version >/dev/null 2>&1; then
+  pod=(env -u GEM_HOME -u GEM_PATH -u RUBYOPT -u RUBYLIB -u MY_RUBY_HOME pod)
+  "${pod[@]}" --version >/dev/null 2>&1 || fail "pod crashes even without rvm's gem paths; run 'pod --version' to see why"
+  echo "setup: pod crashes with rvm's GEM_HOME/GEM_PATH; running it without them"
+fi
+
+echo "setup: pod install"
+(cd apps/browser/macos && "${locked[@]}" "${pod[@]}" install)
+
+lock=apps/browser/macos/Podfile.lock
+for spec in packages/*/ios/*.podspec; do
+  name="$(basename "$spec" .podspec)"
+  grep -q "^  - ${name} (from " "$lock" || fail "$lock lacks ${name}: autolinking didn't see the workspace packages"
+done
+
+echo "setup: done"

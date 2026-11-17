@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "turbo run dev --filter=@ardia/browser",
     "macos": "pnpm --filter @ardia/browser macos",
-    "pods": "pnpm --filter @ardia/browser pods",
+    "pods": "scripts/setup",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "shaders:check": "turbo run shaders:check",

@@ -23,8 +23,7 @@ to do, and update its row in the same PR.
 You need an Apple Silicon Mac on macOS 14 or later, Xcode, CocoaPods, Node and pnpm 11.
 
 ```sh
-pnpm install
-pnpm pods
+scripts/setup # JS packages and Pods; rerun after pulling dependency or podspec changes
 pnpm dev      # Metro, leave it running
 pnpm macos    # builds the Debug app and opens it
 ```

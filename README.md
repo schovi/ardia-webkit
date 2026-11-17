@@ -118,8 +118,11 @@ packages/
 Requires Xcode 26+, CocoaPods, Node 24 (pinned in `.nvmrc`), pnpm 11.
 
 ```bash
-pnpm install
+scripts/setup
 ```
+
+It installs the JS packages and the Pods, and fails with the cause when either comes out incomplete
+(`scripts/setup --help`). Run it again after pulling a change to a `package.json`, the lockfile, a podspec or a patch.
 
 The engine (Chrome's framework, built from our patched Chromium) comes prebuilt: with no local engine build, the app's
 build downloads the one matching your checkout's `engine/` (about 110 MB, once; Apple Silicon only) and checks it
@@ -134,9 +137,6 @@ Chromium tree in `~/chromium-build` (Chromium 157.0.8103.50 with the patch serie
 `engine/ardiacore/apply.sh` and `autoninja -C out/Release_GN_arm64 chrome_framework`; the first build takes about 2
 hours). The app's build stages it from there when it exists.
 
-```bash
-pnpm pods
-```
 
 In one terminal, start Metro:
 
