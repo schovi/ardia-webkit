@@ -95,6 +95,28 @@ extension WebKitTab: PageTab {
 }
 
 extension WebKitTab {
+  func print() {
+    guard let view = webView, let window else { return }
+    if LaunchConfig.shared.background { return NSLog("[webkit] print panel (background mode, not shown)") }
+    let operation = view.printOperation(with: NSPrintInfo.shared)
+    operation.view?.frame = view.bounds
+    operation.runModal(for: window, delegate: nil, didRun: nil, contextInfo: nil)
+  }
+
+  func writeGeometryDiagnostic() {
+    guard let view = webView else { return }
+    var diagnostic: [String: Any] = ["views": WebKitModule.geometry(view), "macOS": ProcessInfo.processInfo.operatingSystemVersionString, "webKit": Bundle(for: WKWebView.self).infoDictionary?["CFBundleVersion"] as? String ?? "unknown", "backingScale": window?.backingScaleFactor ?? 0, "systemReduceMotion": NSWorkspace.shared.accessibilityDisplayShouldReduceMotion, "toolbar": toolbarDiagnostics, "windowMoves": view.windowMoves]
+    if let inspector = view.value(forKey: "_inspector") as? NSObject, inspector.responds(to: NSSelectorFromString("inspectorWebView")),
+      let frontend = inspector.perform(NSSelectorFromString("inspectorWebView"))?.takeUnretainedValue() as? WKWebView {
+      diagnostic["inspector"] = WebKitModule.geometry(frontend)
+    }
+    let directory = URL(fileURLWithPath: ArdiaHost.dataDirectory)
+    do {
+      try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+      try JSONSerialization.data(withJSONObject: diagnostic, options: [.prettyPrinted, .sortedKeys]).write(to: directory.appendingPathComponent("webkit-geometry.json"), options: .atomic)
+    } catch { NSLog("[webkit] geometry diagnostic failed: %@", error.localizedDescription) }
+  }
+
   func loadVersionPage(_ target: URL, in view: WKWebView) -> Bool {
     guard ["ardia", "chrome"].contains(target.scheme ?? ""), target.host == "version" else { return false }
     let info = ArdiaHost.engineInfo

@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
+import { toolbarCollapse } from "./toolbar-rows.mjs";
 import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { RowOutcome } from "./report.mjs";
 import { BUILD, sleep } from "./support.mjs";
 
-export const foregroundRows = new Set(["ext-action", "type-page", "type-omnibox", "keys-page-focus", "full-screen", "inspector"]);
+export const foregroundRows = new Set(["ext-action", "type-page", "type-omnibox", "keys-page-focus", "full-screen", "inspector", "toolbar-collapse"]);
 
 const evidence = join(BUILD, "step-2-evidence");
 async function native(browser, action) {
@@ -46,6 +47,7 @@ async function snapshot(browser, name) {
   copyFileSync(join(browser.data, name), join(evidence, name));
 }
 export const windowRows = {
+  "toolbar-collapse": toolbarCollapse,
   "type-page": async ({browser}) => {
     const id = await inputs(browser);
     await click(browser, await point(browser,id,"#first"));

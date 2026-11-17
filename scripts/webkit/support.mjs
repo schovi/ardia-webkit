@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import { closeSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { attach, binaryOf, binaryPids, isAlive, processInfo, sleep } from "../lib/instance.mjs";
@@ -66,13 +66,14 @@ export class Browser {
     if (!this.options.onboarding) writeFileSync(join(this.data, "onboarding.json"), JSON.stringify({ version: 1, completedAt: 1 }));
     for (const file of ["dev-eval.js", "dev-eval-result.json", "modal-alert.json"]) rmSync(join(this.data, file), { force: true });
     if (this.options.observe) writeFileSync(join(this.data, "telemetry.json"), JSON.stringify({version:1,sharing:true,installId:"webkit-check",decidedAt:1,askDoneAt:1}));
-    const binary = binaryOf(APP);
+    const app = realpathSync(this.options.app ?? APP);
+    const binary = binaryOf(app);
     const before = binaryPids(binary);
     const log = join(this.data, `launch-${this.launches.length + 1}.log`);
     this.started = Date.now();
     const launched = spawnSync("open", [...(this.options.foreground ? ["-n"] : ["-g", "-n"]), "--stdout", log, "--stderr", log,
       ...(this.options.foreground ? [] : ["--env", "ARDIA_BACKGROUND=1"]), "--env", `ARDIA_DATA_DIR=${this.data}`,
-      "--env", `ARDIA_TEST=keychain=file,reauth=${this.options.reauth ?? "granted"}${this.options.observe ? ",networkRequests" : ""}${this.options.importSecret ? ",importSecret=" + this.options.importSecret : ""}`, "--env", `ARDIA_INSTANCE=downloadsDir=${join(this.data, "downloads")},syncFolder=${join(this.data, "sync")},sharedFolders=${join(this.data, "shared")}${this.options.importSourceDir ? ",importSourceDir=" + this.options.importSourceDir : ""}`, APP], { encoding: "utf8", timeout: 10000, env: Object.fromEntries(Object.entries(process.env).filter(([key]) => key !== "ARDIA_BACKGROUND")) });
+      "--env", `ARDIA_TEST=keychain=file,reauth=${this.options.reauth ?? "granted"}${this.options.observe ? ",networkRequests" : ""}${this.options.importSecret ? ",importSecret=" + this.options.importSecret : ""}`, "--env", `ARDIA_INSTANCE=downloadsDir=${join(this.data, "downloads")},syncFolder=${join(this.data, "sync")},sharedFolders=${join(this.data, "shared")}${this.options.importSourceDir ? ",importSourceDir=" + this.options.importSourceDir : ""}${this.options.jsLocation ? ",jsLocation=" + this.options.jsLocation : ""}`, app], { encoding: "utf8", timeout: 10000, env: Object.fromEntries(Object.entries(process.env).filter(([key]) => key !== "ARDIA_BACKGROUND")) });
     assert.equal(launched.status, 0, launched.stderr);
     let pid;
     for (const end = Date.now() + 10000; Date.now() < end && !pid; await sleep(100)) {

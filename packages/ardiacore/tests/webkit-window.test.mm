@@ -124,6 +124,20 @@ int main() {
     [menu addItem:item];
     NSApp.mainMenu = menu;
     assert([[ArdiaChromeWindowHost devAction:@"menus" window:window] containsString:@"ardia.command.back"]);
+    CGEventRef wheel = CGEventCreateScrollWheelEvent(nullptr, kCGScrollEventUnitPixel, 1, -60);
+    CGEventSetIntegerValueField(wheel, (CGEventField)51, window.windowNumber);
+    CGEventSetIntegerValueField(wheel, kCGScrollWheelEventIsContinuous, 1);
+    CGEventSetIntegerValueField(wheel, kCGScrollWheelEventScrollPhase, kCGScrollPhaseBegan);
+    CGEventSetIntegerValueField(wheel, kCGScrollWheelEventMomentumPhase, kCGMomentumScrollPhaseContinue);
+    NSEvent *scroll = [NSEvent eventWithCGEvent:wheel];
+    CFRelease(wheel);
+    SEL retarget = NSSelectorFromString(@"_eventWithRetargetedLocation:");
+    assert([scroll respondsToSelector:retarget]);
+    using Retarget = NSEvent *(*)(id, SEL, NSPoint);
+    scroll = ((Retarget)[scroll methodForSelector:retarget])(scroll, retarget, NSMakePoint(20,30));
+    assert(NSEqualPoints(scroll.locationInWindow, NSMakePoint(20,30)));
+    assert(scroll.windowNumber == window.windowNumber && scroll.phase == NSEventPhaseBegan && scroll.momentumPhase == NSEventPhaseChanged);
+    assert(scroll.hasPreciseScrollingDeltas && scroll.scrollingDeltaY == -60);
     assert([[ArdiaChromeWindowHost devAction:@"hardwareKey:33|1048576" window:window] isEqual:@"ok"]);
     down = [NSApp nextEventMatchingMask:NSEventMaskKeyDown untilDate:[NSDate dateWithTimeIntervalSinceNow:1] inMode:NSDefaultRunLoopMode dequeue:YES];
     up = [NSApp nextEventMatchingMask:NSEventMaskKeyUp untilDate:[NSDate dateWithTimeIntervalSinceNow:1] inMode:NSDefaultRunLoopMode dequeue:YES];
@@ -134,6 +148,6 @@ int main() {
     }
     assert([[ArdiaChromeWindowHost devAction:@"state" window:window] containsString:@"lights"]);
     [window close];
-    puts("PASS WebKit window: close policy, root ownership, light coordinates, visibility defaults, quit callback, reserved key guard, queued literal/hardware keys, menu validation, inspector SPI");
+    puts("PASS WebKit window: close policy, root ownership, light coordinates, visibility defaults, quit callback, reserved key guard, queued literal/hardware keys, menu validation, inspector SPI, phased scroll metadata/retargeting");
   }
 }

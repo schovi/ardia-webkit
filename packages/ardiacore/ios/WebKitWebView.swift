@@ -4,6 +4,8 @@ import WebKit
 final class WebKitWebView: WKWebView {
   var contextPopupDeadline = 0.0
   private var contextMenuActions: [WebKitContextMenuAction] = []
+  var windowMoves: [Int] = []
+  var onGeometryRequest: (() -> Void)?
   var focusRequests = 0
   var onPress: (() -> Void)?
   var onFocus: (() -> Void)?
@@ -44,6 +46,11 @@ final class WebKitWebView: WKWebView {
     if kind == "microphone" { setMicrophoneCaptureState(.none, completionHandler: {}) }
   }
 
+  override func viewDidMoveToWindow() {
+    super.viewDidMoveToWindow()
+    windowMoves = Array((windowMoves + [window?.windowNumber ?? 0]).suffix(32))
+  }
+
   @objc func ardiaPagePressed() { onPress?() }
 
   override func becomeFirstResponder() -> Bool {
@@ -53,6 +60,10 @@ final class WebKitWebView: WKWebView {
   }
 
   override func performKeyEquivalent(with event: NSEvent) -> Bool {
+    if event.keyCode == 5, event.modifierFlags.intersection([.command, .option, .shift, .control]) == [.command, .option, .shift], !isHiddenOrHasHiddenAncestor {
+      onGeometryRequest?()
+      return true
+    }
     guard (window?.firstResponder as? NSView)?.isDescendant(of: self) == true else { return super.performKeyEquivalent(with: event) }
     let reserved = ArdiaPerformReservedKey(event)
     keyUpOfReservedKey = reserved ? event.keyCode : nil

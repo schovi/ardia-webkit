@@ -9,6 +9,18 @@ Use a scratch profile in the rebuilt `Ardia WebKit.app`.
 
 Automated foreground rows prove page typing, Cmd+L, Esc, history shortcuts, window and element full screen, and Inspector windows. They post input inside Ardia. Physical input delivery through WindowServer remains unchecked. Screen-lock skips require another run after unlocking.
 
+## Toolbar collapse
+
+| Action | Expected result |
+|---|---|
+| Scroll down with a real trackpad on the affected page, including momentum | The toolbar collapses; the full page remains painted. |
+| Press Command+Option+Shift+G immediately when the strip appears | Ardia silently writes `<app data>/WebKit/webkit-geometry.json`; send that file with the build used. |
+| Scroll up with the trackpad | The toolbar returns and the full page remains painted. |
+| Hover the collapsed host strip | The toolbar peeks without clipping the page. |
+| Scroll with Inspector docked below the page | Page and Inspector fill the card; neither becomes a strip. |
+
+The foreground row proves native in-app phase routing, geometry, both motion paths, AppKit caches, the hover handler, bookmarks, resize, and split panes. It does not reproduce the owner's strip or prove WindowServer pixels. Physical momentum and hover recognition still need this check.
+
 ## Step 3 page features
 
 | Action | Expected result |

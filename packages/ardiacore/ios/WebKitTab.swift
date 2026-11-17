@@ -42,6 +42,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     get { webView?.playingFrames ?? [] }
     set { webView?.playingFrames = newValue }
   }
+  private(set) var toolbarDiagnostics: [String: Any] = [:]
   private var muted = false
   var sightObserver: NSObjectProtocol?
   private var errorURL: URL?
@@ -54,8 +55,6 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
   private var findActive = 0
   let blocked = WebKitBlockedCount()
   let passwordState = WebKitTabPasswordState()
-
-  override var isFlipped: Bool { true }
 
   override func setFrameSize(_ newSize: NSSize) {
     super.setFrameSize(newSize)
@@ -110,6 +109,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     if let key = transferKey { WebKitHub.shared.transfers.forgetLive(self, key: key) }
     webView = nil
     view.onFocus = nil
+    view.onGeometryRequest = nil
     view.onPress = nil
     WebKitHub.shared.transfers.unregister(view)
     view.navigationDelegate = nil
@@ -135,6 +135,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     view.allowsMagnification = true
     view.isInspectable = true
     updatePageColors()
+    view.onGeometryRequest = { [weak self] in self?.writeGeometryDiagnostic() }
     view.onPress = { [weak self] in self?.emit("pagePress") }
     view.onFocus = { [weak self] in self?.emit("focus") }
     view.frame = bounds
@@ -181,6 +182,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     guard let view = webView else { return }
     webView = nil
     view.onFocus = nil
+    view.onGeometryRequest = nil
     view.onPress = nil
     if let key = transferKey, WebKitHub.shared.transfers.isPrepared(key) {
       WebKitHub.shared.transfers.unregister(view)
@@ -355,15 +357,12 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     return String(json.dropFirst().dropLast())
   }
 
-  func print() {
-    guard let view = webView, let window else { return }
-    if LaunchConfig.shared.background { return NSLog("[webkit] print panel (background mode, not shown)") }
-    let operation = view.printOperation(with: NSPrintInfo.shared)
-    operation.view?.frame = view.bounds
-    operation.runModal(for: window, delegate: nil, didRun: nil, contextInfo: nil)
-  }
-
   func runPageCommand(_ name: String) {
+    if name.hasPrefix("toolbarDiagnostics:"), let data = String(name.dropFirst("toolbarDiagnostics:".count)).data(using: .utf8),
+      let state = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
+      toolbarDiagnostics = ["mode": ["shown", "collapsed", "peek"].contains(state["mode"] as? String ?? "") ? state["mode"]! : "unknown", "reduce": state["reduce"] as? Bool ?? false]
+      return
+    }
     if name == "systemPrint" { print() }
   }
 

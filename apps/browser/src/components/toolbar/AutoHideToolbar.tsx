@@ -14,6 +14,7 @@ import { reduceMotion, space, Text } from "../ui";
 import { TOOLBAR_MOTION } from "./tokens";
 import { motionStep, tallPage, type MotionValue, type TallPage } from "./toolbarMotion";
 import { useToolbarRow } from "./useToolbarRow";
+import { webviews } from "../../state/tabs/webviewHandles";
 
 const HIDE_MS = TOOLBAR_MOTION.hide;
 const HIDE_EASING = curve.enter;
@@ -172,6 +173,7 @@ export function AutoHideToolbar({
   const themeColor = useTabLive(tabId, (l) => l.themeColor);
   const extendColor = useSettings((s) => s.extendWebsiteColor);
   const palette = toolbarPalette(theme, extendColor && url ? themeColor : null);
+  useEffect(() => { void webviews.get(tabId)?.runPageCommand(`toolbarDiagnostics:${JSON.stringify({ mode, reduce: reduceMotion() })}`); }, [tabId, mode]);
   const collapsed = mode === "collapsed";
   const modeNow = useRef(mode);
   modeNow.current = mode;

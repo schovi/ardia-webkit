@@ -162,3 +162,21 @@ test("password fixtures cover plain, two-step, signup, dynamic, frames and hosti
     assert.deepEqual(fixture.passwordLogins,["fixture"]);
   } finally {await fixture.close();}
 });
+
+
+test("toolbar geometry rejects a narrow ancestor clip and handles flipped parents", async () => {
+  const {assertFullPage,rect} = await import("./toolbar-rows.mjs");
+  assert.deepEqual(rect("{{-2, 3.5}, {400, 600}}"),[-2,3.5,400,600]);
+  assert.throws(()=>rect("invalid"));
+  const page={class:"page",bounds:"{{0,0},{400,600}}",frame:"{{0,20},{400,600}}",visibleRect:"{{0,0},{400,600}}",flipped:true,layer:{masksToBounds:false}};
+  const parent={class:"host",bounds:"{{0,0},{400,620}}",frame:"{{0,0},{400,620}}",visibleRect:"{{0,0},{400,620}}",flipped:true,layer:{masksToBounds:true}};
+  assertFullPage([page,parent]);
+  assertFullPage([page,{...parent,flipped:false}]);
+  assert.throws(()=>assertFullPage([page,{...parent,visibleRect:"{{0,0},{400,21}}"}]));
+  assert.throws(()=>assertFullPage([{...page,visibleRect:"{{0,0},{400,21}}"},parent]));
+  assert.throws(()=>assertFullPage([page,{...parent,layer:{mask:"unexamined mask"}}]));
+  assert.throws(()=>assertFullPage([page,{...parent,bounds:"{{0,0},{400,21}}"}]));
+  const root={...parent,bounds:"{{0,0},{400,600}}",visibleRect:"{{0,0},{400,600}}"};
+  assertFullPage([page,{...parent,flipped:false},root]);
+  assert.throws(()=>assertFullPage([page,parent,root]));
+});

@@ -107,7 +107,7 @@ Snapshots render the app's layers without WindowServer. They work while the scre
 
 Step 2 adds `type-page`, `type-omnibox`, `keys-page-focus`, `traffic-lights`, `close-window`, `full-screen`, `user-sees`, `profile-switch`, `swipe`, and `context-menu`.
 
-`type-page`, `type-omnibox`, `keys-page-focus`, `full-screen`, and `inspector` use foreground mode on this unattended Mac. Each launch first reads `ioreg -n Root -d1 -a`; a true `CGSSessionScreenIsLocked` reports `SKIPPED (screen locked)`. Missing or false means unlocked. A lock file enforces one foreground instance at a time. Other Step 2 rows stay hidden.
+`type-page`, `type-omnibox`, `keys-page-focus`, `full-screen`, `inspector`, and `toolbar-collapse` use foreground mode on this unattended Mac. Each launch first reads `ioreg -n Root -d1 -a`; a true `CGSSessionScreenIsLocked` reports `SKIPPED (screen locked)`. Missing or false means unlocked. A lock file enforces one foreground instance at a time. Other Step 2 rows stay hidden.
 
 Foreground launches use `open -n` with normal activation and no `ARDIA_BACKGROUND`. After the harness starts, an AppKit timer activates the app and orders its window key. The row reports `SKIPPED (no key window)` if AppKit does not grant a key window; it never substitutes fake foreground state. They keep scratch data, downloads, sync/shared folders, the file keychain, and the harness probe. Input stays inside the app through AppKit events and responder calls. Checks never use `CGEventPost`, `osascript`, System Events, Accessibility, or `screencapture`. Camera, microphone, location, screen recording, protected folders, and the real Keychain stay out of these rows.
 
@@ -115,7 +115,7 @@ A native watchdog records app-modal alert text in `modal-alert.json`, dismisses 
 
 `swipe` verifies `allowsBackForwardNavigationGestures` and reports `NEEDS PERSON`: synthetic input cannot prove real trackpad recognition. Assertion failures remain FAIL. When any row reports `NEEDS PERSON` or `SKIPPED`, the check prints the path to `docs/webkit/needs-person.md`.
 
-`inspector` requires a connected frontend in a visible native window, with a loaded URL and positive dimensions. It checks Inspect selection mode, detaches the frontend, captures that window, closes it, and reopens it through queued Option+Command+I. Test-only `webKit.devInspector` reads private `_inspector` state and its `inspectorWebView`; its `detach` and `close` actions affect only that inspector. The capture stays in `step-2-evidence/inspector.png`.
+`inspector` requires a connected frontend in a visible native window, with a loaded URL and positive dimensions. It checks Inspect selection mode, detaches the frontend, captures that window, closes it, and reopens it through queued Option+Command+I. Test-only `webKit.devInspector` reads private `_inspector` state and its `inspectorWebView`; its `attach`, `detach`, and `close` actions affect only that inspector. The capture stays in `step-2-evidence/inspector.png`.
 
 The Release `windows.dev` hook accepts `activate` (foreground only), `state`, `menus`, `key:<characters>|<keyCode>|<modifierFlags>`, `hardwareKey:<keyCode>|<modifierFlags>`, `mouse:<down|up|rightdown|rightup>,<x>,<y>`, `resize:<width>,<height>`, `close`, and `fullscreen`. Mouse coordinates start at the window's top left. These hooks require an isolated test instance. `state` returns first responder, page frames, gesture settings, traffic-light centers, visibility, and the last full-screen notification. `menus` reports enabled key equivalents after validation. Both key hooks post down/up events to the app’s own event queue. This preserves `NSApp.currentEvent`, which React Native needs for Esc. Shortcut checks use `hardwareKey`, matching the current keyboard layout. On a Czech layout, the physical bracket keys produce `ú` and `)`. Creating these local events does not post input to another process. The test-only `webKit.devPageState` call reports actual page focus, focus-request count, active/key state, and WebKit full-screen state.
 
@@ -124,6 +124,18 @@ The background app keeps an internal key-window reference without making a real 
 Background WebKit menus write `context-menu.json`. A title in `context-menu.json.pick` selects an enabled item through its native action. The app logs and dismisses the menu. The context-menu row verifies the new tab, copied URL, and separate page menu.
 
 Window rows retain `normal.png` and `fullscreen.png` in `apps/browser/build-webkit/step-2-evidence/`. Frame snapshots render the titlebar and cache traffic buttons separately because those buttons need not have layers. The native row also builds `packages/ardiacore/tests/webkit-window.test.mm` with AppKit, WebKit, and QuartzCore.
+
+## Toolbar collapse diagnostics
+
+`toolbar-collapse` uses a real key window. It creates pixel-unit `CGEvent` scroll events, wraps them in `NSEvent`, and posts them only to Ardia's queue. A local AppKit monitor uses private `_eventWithRetargetedLocation:` after dequeue; retargeting before queueing loses the point. The row records began/changed/ended phases for both gesture and momentum. This proves app routing and page scrolling, not physical trackpad recognition.
+
+Test-only `webKit.devPageGeometry` accepts `tabId`. It returns the web view and every ancestor through the content view, including visible rectangles and layer geometry. `record: ""` samples before input and at 100, 400, 1000, and 2000 ms. `nativeScroll: true` supplies the phased gesture; `delta` defaults to -60. `cache: true` writes `page-cache.png` and each timed `page-cache-<milliseconds>.png` inside the scratch data directory. Guarded private getters report WebKit clipping metadata when the installed framework exposes them.
+
+The row requires each visible rectangle to contain the full page, checks ancestor masks and bounds, and samples the painted gradient throughout each AppKit cache. Healthy `visibleRect` values can exceed `bounds` on this Mac, so literal equality would reject the healthy baseline. The row covers both Reduce Motion paths, scroll-up restoration, the rendered hover handler, bookmarks, resize, both split panes, and docked Inspector placement. Its dumps and PNGs stay in `apps/browser/build-webkit/toolbar-evidence/`. These in-process images do not prove WindowServer's screen pixels. The reported thin strip remains unreproduced here.
+
+Without a test harness, click the affected page and press **Command+Option+Shift+G**. Ardia silently replaces `<app data>/WebKit/webkit-geometry.json`. For this fork's default profile, that is `~/.config/ardia-webkit/WebKit/webkit-geometry.json`. A custom `ARDIA_DATA_DIR` replaces `<app data>`. The file contains the same geometry, including the docked Inspector. It adds macOS version/build, WebKit version, backing scale, system Reduce Motion, actual toolbar mode/motion flag, and recent window attachments. It contains no URL, title, page text, image, or credentials. The shortcut has no harness or build-configuration gate.
+
+For Debug/Metro comparisons, `Browser` accepts `{app: "/absolute/path/to/Debug/Ardia WebKit.app", jsLocation: "localhost:8099", foreground: true}`. Start an owned Metro server on that port first. The helper resolves the app's real path before tracking its process. Foreground isolation and cleanup rules remain identical.
 
 ## Site and browser settings
 
