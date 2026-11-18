@@ -28,5 +28,15 @@
   ],
   "icons": {
     "32": "icon.svg"
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "frame.html"
+      ],
+      "matches": [
+        "http://127.0.0.1/*"
+      ]
+    }
+  ]
 }

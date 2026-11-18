@@ -62,8 +62,9 @@ export const extensionRows = {
     mkdirSync(join(BUILD,"step-8-evidence"),{recursive:true});cpSync(join(browser.data,"extensions.png"),join(BUILD,"step-8-evidence/extensions.png"));
     const tab=await browser.open("/first");
     await browser.until(`return ac.webviews.get(${JSON.stringify(tab)}).evaluate('post("result",JSON.stringify(document.documentElement.dataset.extensionWorker));').then(v=>v==="worker-answer");`);
+    await browser.until(`return ac.webviews.get(${JSON.stringify(tab)}).evaluate('post("result",JSON.stringify(document.documentElement.dataset.extensionFrame));').then(v=>v==="loaded");`);
     assert.equal((await call(browser,"extensions.list",{profile:"other"})).extensions.length,0);
-    return "consent via resolveInstallPrompt; managed copy survives source removal; Settings snapshot; worker runs; other profile empty";
+    return "consent via resolveInstallPrompt; managed copy survives source removal; Settings snapshot; worker runs; web-accessible frame loads; other profile empty";
   },
   "ext-install-crx": async ({browser,scratch}) => {
     const {id,folder}=await install(browser,scratch,"extension-content","",true);

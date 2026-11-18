@@ -484,7 +484,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     }
     let scheme = url.scheme?.lowercased() ?? ""
     if ["ardia", "chrome"].contains(scheme), url.host == "version" { return decide(.allow) }
-    let webSchemes: Set<String> = ["http", "https", "file", "about", "data", "blob", "javascript", "webkit-pdfjs-viewer"]
+    let webSchemes: Set<String> = ["http", "https", "file", "about", "data", "blob", "javascript", "webkit-pdfjs-viewer", "webkit-extension"]
     if !webSchemes.contains(scheme) {
       decide(.cancel)
       let fromMainFrame = action.sourceFrame.isMainFrame || action.targetFrame?.isMainFrame == true
