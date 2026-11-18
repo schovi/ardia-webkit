@@ -87,7 +87,11 @@ final class WebKitExtensionStore: NSObject, WKScriptMessageHandler {
     if (lastId !== id()) { lastId = id(); installed = false; busy = false; nonce = null; window.webkit.messageHandlers.ardiaExtensionStore.postMessage('state'); }
     const b = button(); if (!b) return;
     const text = installed ? 'Added' : 'Add to Ardia';
-    if (b.textContent.trim() !== text) b.textContent = text;
+    if (b.textContent.trim() !== text) {
+      const walker = document.createTreeWalker(b, NodeFilter.SHOW_TEXT);
+      let first = true;
+      while (walker.nextNode()) if (walker.currentNode.nodeValue.trim()) { walker.currentNode.nodeValue = first ? text : ''; first = false; }
+    }
     if (b.disabled !== (installed || busy)) b.disabled = installed || busy;
     if (b.getAttribute('aria-disabled') !== String(installed || busy)) b.setAttribute('aria-disabled', String(installed || busy));
     b.style.pointerEvents = 'auto';

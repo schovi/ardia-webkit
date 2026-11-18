@@ -23,6 +23,7 @@ export const storeRows={
     await browser.evaluate(`globalThis.storeFailures=[];ac.engine.on("extensions.installFailed",e=>globalThis.storeFailures.push(e));return true;`);
     let tab=await openStore(browser);
     await browser.until(`return ac.engine.call('webKit.devExtensionStore',{tabId:${JSON.stringify(tab)},script:${JSON.stringify(`return !!(${button}) && !(${button}).disabled;`)}});`,30000);
+    assert.equal(await isolated(browser,tab,`return [...(${button}).querySelectorAll('*')].some(e=>e.textContent.trim()==='Add to Ardia');`),true,'store button lost its styled label');
     await browser.execute(tab,"document.documentElement.dataset.storeAttack=JSON.stringify({handler:!!window.webkit?.messageHandlers?.ardiaExtensionStore});[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Add to Ardia')?.click();");
     assert.equal(await browser.page(tab,'JSON.parse(document.documentElement.dataset.storeAttack).handler'),false);
     await isolated(browser,tab,"window.webkit.messageHandlers.ardiaExtensionStore.postMessage('forged');return true;");
@@ -51,7 +52,7 @@ export const storeRows={
     const managed=join(browser.data,'WebKit/Extensions');
     for(const end=Date.now()+10000;Date.now()<end&&readdirSync(managed).some(n=>n.startsWith('download-')||n.startsWith('staging-'));await new Promise(r=>setTimeout(r,100)));
     assert.ok(!readdirSync(managed).some(n=>n.startsWith('download-')||n.startsWith('staging-')));
-    return 'real store button enabled; page world has no handler; authenticated requested id; no install before consent; accepted id survives relaunch and Added button disabled; decline leaves no extension or staging files';
+    return 'real store button enabled with its styled label; page world has no handler; authenticated requested id; no install before consent; accepted id survives relaunch and Added button disabled; decline leaves no extension or staging files';
   },
   'ext-store-origin':async({browser})=>{
     const tab=await browser.open('/first');
